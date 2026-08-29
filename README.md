@@ -47,6 +47,16 @@ MT5_SERVER=ICMarketsEU-MT5-5
 
 Sin `.env`, el bridge no inicia sesión por cuenta propia y confía en la sesión activa del terminal MetaTrader 5.
 
+`MT5_PATH` y `PORT` son opcionales. Para atribución exacta por EA, configura `AGENT_MAP` con magic numbers o tags; sin mapa, las posiciones se reparten round-robin entre agentes del mismo símbolo. Los estados visuales usan ticks frescos, posiciones y profit: el mercado cerrado produce `SLEEPING`, mientras que actividad y resultado producen `WORKING`, `ENERGIZED`, `STRESSED` o `ALERT`.
+
+Ejemplo de `AGENT_MAP`:
+
+```text
+AGENT_MAP=[{"id":"NQ-ALPHA","symbols":["USTEC"],"magics":[111001],"tags":[]},{"id":"NQ-SIGMA","symbols":["USTEC"],"magics":[111002],"tags":[]},{"id":"XAU-PRIME","symbols":["XAUUSD"],"magics":[222001],"tags":[]},{"id":"XAU-FLASH","symbols":["XAUUSD"],"magics":[222002],"tags":[]}]
+```
+
+`tools/list_magics.py` imprime los magic numbers y comentarios de las posiciones abiertas para completar ese mapa.
+
 `MT5_PATH` y `PORT` son opcionales. El paquete Python `MetaTrader5` se comunica con el terminal de escritorio instalado en el mismo Windows; usa `MT5_PATH` si está instalado en una ruta no estándar.
 
 ## Frontend

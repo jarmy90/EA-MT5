@@ -104,9 +104,17 @@ class MT5Service:
         return [value._asdict() for value in values]
 
     def symbols(self) -> list[str]:
-        """Return configured symbols so the UI can detect whether markets are producing ticks."""
-        configured = os.getenv("MT5_SYMBOLS", "NQ100,XAUUSD,EURUSD")
+        """Return broker symbols used by the four desks."""
+        configured = os.getenv("MT5_SYMBOLS", "USTEC,XAUUSD")
         return [symbol.strip() for symbol in configured.split(",") if symbol.strip()]
+
+    def thresholds(self) -> dict[str, float]:
+        return {
+            "energized": float(os.getenv("THRESH_ENERGIZED", "100")),
+            "stressed": float(os.getenv("THRESH_STRESSED", "0")),
+            "alert": float(os.getenv("THRESH_ALERT", "-250")),
+            "tick_stale_seconds": float(os.getenv("TICK_STALE_SECONDS", "60")),
+        }
 
     def telemetry(self) -> dict[str, Any]:
         connected = self.ensure_connection()
@@ -117,6 +125,8 @@ class MT5Service:
             "account": self.account() if connected else None,
             "positions": positions,
             "ticks": ticks,
+            "symbols": self.symbols(),
+            "thresholds": self.thresholds(),
         }
 
     def tick(self, symbol: str) -> dict[str, Any] | None:

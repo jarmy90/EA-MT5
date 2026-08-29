@@ -11,6 +11,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from mt5_bridge.service import reconnect_loop, service
+from api.agents import attribute
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(name)s - %(message)s")
 logger = logging.getLogger("mision_control.api")
@@ -54,7 +55,9 @@ def positions():
 
 @app.get("/telemetry")
 def telemetry():
-    return service.telemetry()
+    payload = service.telemetry()
+    payload["agents"] = attribute(payload.get("positions", []))
+    return payload
 
 
 @app.get("/tick/{symbol}")
