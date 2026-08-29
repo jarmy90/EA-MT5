@@ -195,11 +195,10 @@
       agents.forEach(function(a) {
         var visual = document.querySelector('[data-agent-name="'+a.name+'"] .worker-scene');
         if (!visual) return;
-        if (window.WorkerScene && !scenes[a.name]) {
-          scenes[a.name] = { setState: function(state) { visual.className='worker-visual worker-scene '+String(state).toLowerCase(); } };
-            color: ({cyan:'#22d3ee',magenta:'#e879f9',gold:'#fbbf24',lime:'#a3e635'})[a.accent],
-            flip: a.name === 'XAU-FLASH'
-          });
+        if (!scenes[a.name]) {
+          scenes[a.name] = { setState: function(state) {
+            visual.className='worker-visual worker-scene '+String(state).toLowerCase();
+          }};
         }
       });
     }
