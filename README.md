@@ -51,4 +51,4 @@ Sin `.env`, el bridge no inicia sesión por cuenta propia y confía en la sesió
 
 ## Frontend
 
-Demo Mode muestra telemetría animada. Live Mode consulta `/telemetry` cada pocos segundos y refleja conexión, cuenta, posiciones y ticks. Cada agente cambia entre desconectado, durmiendo, espera, trabajando, excitado, estresado o alerta según mercado, posiciones y beneficio flotante. La separación por estrategia requiere mapear magic numbers o comentarios de órdenes en una futura capa de agregación.
+Live Mode es el modo predeterminado y consulta `/account`, `/positions`, `/status` y `/telemetry` cada pocos segundos para reflejar datos reales. No muestra cifras demo; si la API no está disponible, muestra un estado offline claro. Cada agente cambia entre desconectado, durmiendo, espera, trabajando, excitado, estresado o alerta según mercado, posiciones y beneficio flotante. La separación por estrategia requiere mapear magic numbers o comentarios de órdenes en una futura capa de agregación.
