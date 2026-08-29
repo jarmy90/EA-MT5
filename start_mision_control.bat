@@ -2,25 +2,27 @@
 setlocal
 cd /d "%~dp0"
 
-title Mision Control - Arranque
+title Mision Control - AI Command Station
 color 0B
 
 echo.
 echo ================================================================
-echo              MISION CONTROL - ARRANQUE LOCAL
+echo              MISION CONTROL - AI COMMAND STATION
 echo ================================================================
 echo.
-echo [INFO] Se comprobara MT5 y se instalaran dependencias solo si faltan.
-echo [INFO] La API se abrira en http://127.0.0.1:8000
+echo  [1/3] Instalando dependencias...
+pip install -q -r requirements.txt 2>nul
+echo  [OK] Dependencias listas.
+echo.
+echo  [2/3] Arrancando API en http://127.0.0.1:8000 ...
+echo.
+echo  [3/3] Abre tu navegador en: http://127.0.0.1:8000
+echo.
+echo ================================================================
+echo  Cierra esta ventana para detener la API.
+echo ================================================================
 echo.
 
-python start_mision_control.py
-if errorlevel 1 (
-  echo.
-  echo [ERROR] Mision Control no pudo iniciarse.
-  echo [AYUDA] Abre MetaTrader 5 e inicia sesion, luego ejecuta este archivo otra vez.
-  pause
-  exit /b 1
-)
+python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
 
 pause
