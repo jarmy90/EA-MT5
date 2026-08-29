@@ -25,8 +25,8 @@
     .brand-copy strong { display:block; font:700 20px Orbitron,sans-serif; letter-spacing:.15em; }
     .brand-copy span,.eyebrow { color:var(--muted); font:11px "Share Tech Mono",monospace; letter-spacing:.15em; }
     .brand-copy span { color:var(--cyan); }
-    .build-badge { display:inline-block; margin-left:10px; padding:2px 7px; border:1px solid var(--cyan); color:var(--cyan); font:9px "Share Tech Mono",monospace; letter-spacing:.1em; vertical-align:middle; }
-    .build-badge.error { color:var(--danger); border-color:var(--danger); animation:pulse 1s infinite; }
+    .build-badge { display:inline-block; margin-left:10px; padding:3px 10px; border:1px solid var(--cyan); color:var(--cyan); font:10px "Share Tech Mono",monospace; letter-spacing:.1em; vertical-align:middle; background:rgba(0,239,255,.08); }
+    .build-badge.error { color:var(--danger); border-color:var(--danger); background:rgba(255,82,109,.08); animation:pulse 1s infinite; }
     .header-stats { display:flex; align-items:center; gap:22px; justify-content:center; }
     .stat-label { display:block; color:var(--muted); font:10px "Share Tech Mono",monospace; letter-spacing:.13em; text-transform:uppercase; }
     .header-number { font:600 19px Orbitron,sans-serif; letter-spacing:.02em; }
@@ -45,8 +45,8 @@
     .head-meta { color:var(--muted); font:11px "Share Tech Mono",monospace; }
     .stations { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
     .station { --accent:var(--cyan); position:relative; overflow:hidden; min-height:350px; padding:19px; border:1px solid color-mix(in srgb, var(--accent) 45%, transparent); background:linear-gradient(135deg,rgba(18,26,43,.86),rgba(8,12,22,.72)); box-shadow:inset 0 1px 0 rgba(255,255,255,.05), 0 16px 45px rgba(0,0,0,.18); }
-    .station:before { content:""; position:absolute; width:190px; height:190px; right:-62px; top:-75px; border-radius:50%; border:1px solid color-mix(in srgb,var(--accent) 35%,transparent); box-shadow:0 0 45px color-mix(in srgb,var(--accent) 15%,transparent); }
-    .station:after { content:""; position:absolute; inset:0; pointer-events:none; background:linear-gradient(110deg,transparent 35%,color-mix(in srgb,var(--accent) 8%,transparent),transparent 65%); transform:translateX(-100%); animation:sweep 6s ease-in-out infinite; }
+    .station:before { content:""; position:absolute; width:100%; height:3px; bottom:0; left:0; background:linear-gradient(90deg,transparent,var(--accent),transparent); opacity:.25; }
+    .station:after { content:""; position:absolute; inset:0; pointer-events:none; background:linear-gradient(110deg,transparent 35%,color-mix(in srgb,var(--accent) 6%,transparent),transparent 65%); transform:translateX(-100%); animation:sweep 6s ease-in-out infinite; }
     .station.magenta { --accent:var(--magenta); } .station.gold { --accent:var(--gold); } .station.lime { --accent:var(--lime); }
     .station.sleeping { filter:saturate(.72); }
     .station.disconnected { filter:grayscale(.8) brightness(.7); }
@@ -66,8 +66,10 @@
     .agent-title p { margin:4px 0 0; color:var(--muted); font:12px "Share Tech Mono",monospace; }
     .status { display:flex; align-items:center; gap:7px; color:var(--accent); font:10px "Share Tech Mono",monospace; letter-spacing:.12em; }
     .status i { width:7px;height:7px;border-radius:50%;background:var(--accent); box-shadow:0 0 12px var(--accent); animation:pulse 1.4s infinite; }
-    .station-body { display:grid; grid-template-columns:155px 1fr; gap:20px; align-items:center; margin:23px 0 20px; position:relative; z-index:1; }
-    .agent-scene { width:100%; max-width:260px; aspect-ratio:3/2; display:grid; place-items:center; }
+    .station-body { display:flex; gap:18px; align-items:center; margin:18px 0 16px; position:relative; z-index:1; }
+    .agent-scene { flex:0 0 200px; height:134px; display:grid; place-items:center; border:1px solid color-mix(in srgb,var(--accent) 25%,transparent); background:rgba(0,0,0,.3); }
+    @media(max-width:800px) { .agent-scene{flex:0 0 160px;height:107px} }
+    @media(max-width:480px) { .agent-scene{flex:0 0 130px;height:87px} }
     .worker-canvas { width:100%; height:100%; image-rendering:pixelated; image-rendering:crisp-edges; }
     .scene-fallback { color:var(--muted); font:10px "Share Tech Mono",monospace; text-align:center; padding:18px 0; border:1px dashed var(--line); width:100%; }
     .metrics { display:grid; grid-template-columns:1fr 1fr; gap:13px 20px; }
@@ -93,8 +95,8 @@
     .error-bar { display:none; position:fixed; bottom:0; left:0; right:0; z-index:40; padding:6px 16px; background:rgba(180,20,20,.92); color:#fff; font:11px "Share Tech Mono",monospace; text-align:center; border-top:2px solid var(--danger); }
     .error-bar.visible { display:block; }
     @keyframes pulse { 50% { box-shadow:0 0 0 5px transparent; opacity:.65; } } @keyframes deskShake { from { transform:translateX(-1px); } to { transform:translateX(1px); } } @keyframes breathe { 50% { transform:scale(1.13); } } @keyframes sweep { 45%,100% { transform:translateX(100%); } } @keyframes marquee { to { transform:translateX(-50%); } } @keyframes appear { to { opacity:1; } } @keyframes bootOut { to { opacity:0; visibility:hidden; } }
-    @media(max-width:800px) { .shell{width:min(100% - 24px,600px)} .topbar{grid-template-columns:1fr; gap:13px; padding:16px 0}.header-stats{justify-content:start}.header-right{justify-self:start;text-align:left}.stations{grid-template-columns:1fr}.station-body{grid-template-columns:125px 1fr}.agent-scene{max-width:200px} }
-    @media(max-width:480px) { .station{padding:15px}.station-body{grid-template-columns:1fr; gap:0}.agent-scene{max-width:160px}.metrics{gap:11px}.header-stats{gap:14px}.header-number{font-size:15px} }
+    @media(max-width:800px) { .shell{width:min(100% - 24px,600px)} .topbar{grid-template-columns:1fr; gap:13px; padding:16px 0}.header-stats{justify-content:start}.header-right{justify-self:start;text-align:left}.stations{grid-template-columns:1fr}.station-body{flex-direction:column;align-items:stretch} }
+    @media(max-width:480px) { .station{padding:15px}.metrics{gap:11px}.header-stats{gap:14px}.header-number{font-size:15px} }
   </style>
 </head>
 <body>
@@ -189,7 +191,7 @@
       var magicBadge = a.magics && a.magics.length ? a.magics.map(function(m){return 'M:'+m}).join(' ') : '';
       return '<article data-agent-name="'+a.name+'" class="station '+a.accent+' '+(a.moodClass||'')+'">'
         + '<div class="station-head"><div class="agent-title"><span class="agent-id">AGT-'+a.id+'</span><div><h2>'+a.name+'</h2><p>'+a.market+' <span style="color:var(--accent)">//</span> '+a.tf+' <span style="color:var(--accent)">//</span> MT5'+(magicBadge?' <span style="color:var(--accent);margin-left:6px;font-size:9px;border:1px solid var(--accent);padding:1px 4px">'+magicBadge+'</span>':'')+'</p></div></div><div class="status"><i></i>'+a.status+'</div></div>'
-        + '<div class="station-body"><div class="agent-scene"><canvas class="worker-canvas" width="120" height="80" aria-hidden="true"></canvas></div><div class="metrics">'
+        + '<div class="station-body"><div class="agent-scene"><canvas class="worker-canvas" width="120" height="80" aria-hidden="true"></canvas></div><div class="metrics" style="flex:1">'
         + '<div class="metric"><label>BALANCE</label><strong>'+(a.balance==null?'—':money(a.balance))+'</strong></div>'
         + '<div class="metric"><label>FLOATING P&amp;L</label><strong class="'+(a.pnl<0?'negative':'positive')+'">'+(a.pnl==null?'—':((a.pnl>=0?'+':'-')+money(Math.abs(a.pnl))))+'</strong></div>'
         + '<div class="metric"><label>OPEN POSITIONS</label><strong>'+String(a.positions).padStart(2,'0')+'</strong></div>'
