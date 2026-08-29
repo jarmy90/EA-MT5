@@ -48,7 +48,11 @@
     .station:before { content:""; position:absolute; width:100%; height:3px; bottom:0; left:0; background:linear-gradient(90deg,transparent,var(--accent),transparent); opacity:.25; }
     .station:after { content:""; position:absolute; inset:0; pointer-events:none; background:linear-gradient(110deg,transparent 35%,color-mix(in srgb,var(--accent) 6%,transparent),transparent 65%); transform:translateX(-100%); animation:sweep 6s ease-in-out infinite; }
     .station.magenta { --accent:var(--magenta); } .station.gold { --accent:var(--gold); } .station.lime { --accent:var(--lime); }
-    .station.sleeping { filter:saturate(.72); }
+    .station.sleeping { filter:saturate(.92); }
+    .station.sleeping .agent-scene { background:linear-gradient(180deg,rgba(10,24,42,.95),rgba(4,8,16,.98)); }
+    .station.working .agent-scene, .station.energized .agent-scene { box-shadow:inset 0 0 28px color-mix(in srgb,var(--accent) 18%,transparent), 0 0 18px color-mix(in srgb,var(--accent) 10%,transparent); }
+    .station.stressed .agent-scene { background:linear-gradient(180deg,rgba(46,14,28,.85),rgba(10,7,15,.98)); }
+    .station.alert .agent-scene { background:linear-gradient(180deg,rgba(65,10,20,.9),rgba(12,5,10,.98)); }
     .station.disconnected { filter:grayscale(.8) brightness(.7); }
     .station.disconnected .worker-canvas { opacity:.45; }
     .station.energized .worker-canvas { filter:saturate(1.5) drop-shadow(0 0 12px var(--accent)); }
@@ -104,7 +108,7 @@
   <div class="shell">
     <header class="topbar">
       <div class="brand"><div class="brand-mark"></div><div class="brand-copy"><strong>MISIÓN CONTROL</strong><span>TRADING OPERATIONS // v3.0.0 <span class="build-badge" id="build-badge">BUILD ???</span></span></div></div>
-      <div class="header-stats"><div><span class="stat-label">Total balance</span><strong class="header-number" id="balance">—</strong></div><div><span class="stat-label">Floating P&amp;L</span><strong class="header-number" id="pnl">—</strong></div></div>
+      <div class="header-stats"><div><span class="stat-label">Total balance</span><strong class="header-number" id="balance">—</strong></div><div><span class="stat-label">Floating P&amp;L</span><strong class="header-number" id="pnl">—</strong></div><div><span class="stat-label">Growth since start</span><strong class="header-number" id="growth">—</strong></div></div>
       <div class="header-right"><div><span class="stat-label"><i class="pulse"></i><span id="system-status">SYSTEM ONLINE</span></span><span class="stat-label" id="clock">UTC --:--:-- // LOCAL --:--:--</span></div><div class="mode-switch"><button data-mode="demo">DEMO</button><button class="active" data-mode="live">LIVE</button></div><div id="api-message" style="display:none;color:var(--gold);font:10px 'Share Tech Mono',monospace;margin-top:6px;max-width:220px">API no disponible. ¿Has ejecutado start_mision_control.bat?</div></div>
     </header>
     <main>
@@ -172,6 +176,10 @@
         var canvas = document.querySelector('[data-agent-name="'+a.name+'"] .worker-canvas');
         if (!canvas) return;
         if (window.WorkerScene && !scenes[a.name]) {
+          if (!canvas.getContext || !canvas.getContext('2d')) {
+            canvas.parentElement.innerHTML = '<div class="scene-fallback">ESCENA NO DISPONIBLE — CANVAS NO COMPATIBLE</div>';
+            return;
+          }
           scenes[a.name] = new WorkerScene(canvas, {
             color: ({cyan:'#22d3ee',magenta:'#e879f9',gold:'#fbbf24',lime:'#a3e635'})[a.accent],
             flip: a.name === 'XAU-FLASH'
@@ -186,6 +194,8 @@
     const $ = function(s) { return document.querySelector(s); };
     const money = function(n) { return '$' + n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); };
     const time = function() { return new Date().toISOString().slice(11,19); };
+    const initialBalance = Number(new URLSearchParams(location.search).get('initialBalance') || localStorage.getItem('mision-control-initial-balance') || '1350');
+    const safeText = function(value) { return String(value == null ? '' : value).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); };
 
     function station(a, i) {
       var magicBadge = a.magics && a.magics.length ? a.magics.map(function(m){return 'M:'+m}).join(' ') : '';
@@ -271,7 +281,14 @@
         var account=payload.account, positions=payload.positions||[], status=payload.status||{}, ticks=(payload.ticks||{}), attributed=(payload.agents||{}), thresholds=(payload.thresholds||{});
         $('#api-message').style.display='none';
         updateFeed(positions, attributed);
-        if(account && account.balance!=null) $('#balance').textContent=money(account.balance);
+        if(account && account.balance!=null) {
+          $('#balance').textContent=money(account.balance);
+          if (Number.isFinite(initialBalance) && initialBalance > 0) {
+            var growth = ((Number(account.equity != null ? account.equity : account.balance) - initialBalance) / initialBalance) * 100;
+            $('#growth').textContent=(growth>=0?'+':'')+growth.toFixed(2)+'%';
+            $('#growth').className='header-number '+(growth>=0?'positive':'negative');
+          }
+        }
         var livePnl = Number(account && (account.profit!=null ? account.profit : ((account.equity||account.balance||0)-(account.balance||0))));
         $('#pnl').textContent=(livePnl>=0?'+':'-')+money(Math.abs(livePnl));
         $('#pnl').className='header-number '+(livePnl>=0?'positive':'negative');
@@ -281,6 +298,7 @@
         render();
       } catch(error) {
         $('#system-status').textContent='API OFFLINE';
+        $('#growth').textContent='—';
         $('#system-status').style.color='var(--gold)';
         $('#api-message').textContent='API no disponible. ¿Has ejecutado start_mision_control.bat?';
         $('#api-message').style.display='block';
