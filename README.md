@@ -59,6 +59,29 @@ AGENT_MAP=[{"id":"NQ-ALPHA","symbols":["USTEC"],"magics":[111001],"tags":[]},{"i
 
 `MT5_PATH` y `PORT` son opcionales. El paquete Python `MetaTrader5` se comunica con el terminal de escritorio instalado en el mismo Windows; usa `MT5_PATH` si está instalado en una ruta no estándar.
 
+## Auto-descubrimiento de Magic Numbers
+
+El sistema descubre automáticamente los magic numbers de tus EAs al arrancar:
+
+1. Lee los magic numbers de las posiciones abiertas reales.
+2. Los agrupa por grupo de símbolo (NQ para USTEC, XAU para XAUUSD).
+3. Asigna cada magic al siguiente agente libre de su grupo, en orden.
+4. Guarda el mapeo en `data/agent_map.auto.json` para que sea estable entre reinicios.
+
+Prioridad: `AGENT_MAP` manual en `.env` > `agent_map.auto.json` > round-robin por símbolo.
+
+Consulta el mapeo actual en `http://127.0.0.1:8000/agents/map`.
+
+## Fórmula de Floating P&L
+
+El beneficio flotante se calcula de forma unificada en header, tarjetas y log:
+
+```text
+floating_pnl = profit + swap + commission
+```
+
+El mismo número aparece en los tres sitios. Los valores vienen directamente de MT5 sin redondeos intermedios.
+
 ## Frontend
 
-Live Mode es el modo predeterminado y consulta `/account`, `/positions`, `/status` y `/telemetry` cada pocos segundos para reflejar datos reales. No muestra cifras demo; si la API no está disponible, muestra un estado offline claro. Cada agente cambia entre desconectado, durmiendo, espera, trabajando, excitado, estresado o alerta según mercado, posiciones y beneficio flotante. La inspiración de equipos vivos de StarNet se aplica como proyección de estado operativo verificable, sin copiar arte, marca ni código. La separación por estrategia requiere mapear magic numbers o comentarios de órdenes en una futura capa de agregación.
+Live Mode es el modo predeterminado y consulta `/telemetry` cada pocos segundos para reflejar datos reales. No muestra cifras demo; si la API no está disponible, muestra un estado offline claro. Cada agente cambia entre desconectado, durmiendo, espera, trabajando, excitado, estresado o alerta según mercado, posiciones y beneficio flotante. Los muñecos pixel-art en cada tarjeta muestran visualmente el estado: dormidos con Zzz, tecleando, celebrando o en alerta.
