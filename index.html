@@ -54,10 +54,10 @@
     .station.stressed .agent-scene { background:linear-gradient(180deg,rgba(46,14,28,.85),rgba(10,7,15,.98)); }
     .station.alert .agent-scene { background:linear-gradient(180deg,rgba(65,10,20,.9),rgba(12,5,10,.98)); }
     .station.disconnected { filter:grayscale(.8) brightness(.7); }
-    .station.disconnected .worker-canvas { opacity:.45; }
-    .station.energized .worker-canvas { filter:saturate(1.5) drop-shadow(0 0 12px var(--accent)); }
-    .station.stressed .worker-canvas { animation:deskShake .12s linear infinite alternate; }
-    .station.alert .worker-canvas { filter:hue-rotate(300deg) saturate(1.4); }
+    .station.disconnected .worker-visual { opacity:.45; }
+    .station.energized .worker-visual { filter:saturate(1.5) drop-shadow(0 0 12px var(--accent)); }
+    .station.stressed .worker-visual { animation:deskShake .12s linear infinite alternate; }
+    .station.alert .worker-visual { filter:hue-rotate(300deg) saturate(1.4); }
     .station.energized { filter:saturate(1.3); }
     .station.stressed { filter:saturate(.58); }
     .station.alert { border-color:color-mix(in srgb,var(--danger) 65%,transparent); }
@@ -76,6 +76,26 @@
     @media(max-width:480px) { .agent-scene{flex:0 0 130px;height:87px} }
     .worker-canvas { width:100%; height:100%; image-rendering:pixelated; image-rendering:crisp-edges; display:block; }
     .scene-fallback { color:var(--danger); font:11px "Share Tech Mono",monospace; text-align:center; padding:18px 8px; border:1px dashed var(--danger); width:100%; }
+    .worker-visual { position:relative; width:100%; height:100%; overflow:hidden; background:linear-gradient(180deg,#101d31 0%,#09111e 68%,#14243b 69%,#0a101b 72%); }
+    .worker-visual:before { content:"LIVE DESK // MT5"; position:absolute; top:9px; left:10px; color:var(--accent); font:8px "Share Tech Mono",monospace; letter-spacing:.1em; opacity:.85; }
+    .worker-visual:after { content:""; position:absolute; left:10%; right:10%; bottom:20%; height:1px; background:var(--accent); box-shadow:0 0 8px var(--accent); opacity:.7; }
+    .worker-person { position:absolute; left:50%; bottom:20%; width:42px; height:70px; transform:translateX(-50%); transition:transform .25s ease, filter .25s ease; filter:drop-shadow(0 0 7px var(--accent)); }
+    .worker-head { position:absolute; top:0; left:12px; width:19px; height:19px; border-radius:4px 4px 7px 7px; background:#e5b38d; border-top:6px solid #273550; box-shadow:inset -4px 0 #bd805f; }
+    .worker-body { position:absolute; top:21px; left:8px; width:27px; height:31px; border-radius:7px 7px 3px 3px; background:var(--accent); box-shadow:inset 7px 0 rgba(0,0,0,.28); }
+    .worker-arm { position:absolute; top:27px; width:23px; height:6px; border-radius:4px; background:var(--accent); transform-origin:top left; }
+    .worker-arm.left { left:9px; transform:rotate(30deg); }.worker-arm.right { left:28px; transform:rotate(145deg); }
+    .worker-leg { position:absolute; top:49px; width:8px; height:21px; background:#17243d; border-radius:0 0 4px 4px; }.worker-leg.left{left:10px}.worker-leg.right{left:25px}
+    .worker-monitor { position:absolute; left:18%; bottom:29%; width:64%; height:25%; border:2px solid color-mix(in srgb,var(--accent) 75%,white); background:repeating-linear-gradient(0deg,rgba(0,0,0,.2) 0 3px,rgba(255,255,255,.04) 4px 5px); box-shadow:0 0 14px color-mix(in srgb,var(--accent) 35%,transparent); }
+    .worker-monitor:after { content:"▰  ▰  ▰  ▰"; position:absolute; inset:25% 10%; color:var(--accent); font:12px "Share Tech Mono",monospace; animation:screenBlink 1.2s steps(2) infinite; }
+    .worker-desk { position:absolute; left:8%; right:8%; bottom:17%; height:8px; background:#263b5d; border-top:2px solid var(--accent); box-shadow:0 0 10px color-mix(in srgb,var(--accent) 25%,transparent); }
+    .worker-z { position:absolute; right:10%; top:26%; color:var(--accent); font:700 16px Orbitron,sans-serif; opacity:0; }
+    .worker-scene.sleeping .worker-person { transform:translateX(-50%) rotate(35deg) translateY(18px); transform-origin:bottom center; filter:drop-shadow(0 0 4px var(--accent)); }
+    .worker-scene.sleeping .worker-z { opacity:.8; animation:floatZ 2.4s ease-in-out infinite; }.worker-scene.sleeping .worker-z:after{content:"zZ"}
+    .worker-scene.working .worker-arm { animation:typeLeft .45s ease-in-out infinite alternate; }.worker-scene.working .worker-arm.right { animation-name:typeRight; }
+    .worker-scene.stressed .worker-person { animation:shake .1s linear infinite alternate; filter:drop-shadow(0 0 9px var(--danger)); }.worker-scene.stressed .worker-arm { animation:typeLeft .12s linear infinite alternate; }.worker-scene.stressed .worker-arm.right { animation-name:typeRight; }
+    .worker-scene.energized .worker-arm.left { transform:rotate(-125deg); animation:celebrate .55s ease-in-out infinite alternate; }.worker-scene.energized .worker-arm.right { transform:rotate(-55deg); animation:celebrate .55s ease-in-out infinite alternate-reverse; }
+    .worker-scene.alert .worker-person { filter:drop-shadow(0 0 11px var(--danger)); animation:alarm .35s linear infinite alternate; }.worker-scene.disconnected { filter:grayscale(1); opacity:.5; }
+    @keyframes typeLeft { to{transform:rotate(55deg) translateY(3px)} } @keyframes typeRight { to{transform:rotate(125deg) translateY(3px)} } @keyframes celebrate { to{translate:0 -8px} } @keyframes shake { to{translate:3px 0} } @keyframes alarm { to{translate:2px 0} } @keyframes floatZ { 50%{transform:translate(5px,-8px);opacity:.2} } @keyframes screenBlink { 50%{opacity:.35} }
     .metrics { display:grid; grid-template-columns:1fr 1fr; gap:13px 20px; }
     .metric label { display:block; color:var(--muted); font:10px "Share Tech Mono",monospace; margin-bottom:4px; }
     .metric strong { font:600 16px Orbitron,sans-serif; }
@@ -173,20 +193,13 @@
 
     function initScenes() {
       agents.forEach(function(a) {
-        var canvas = document.querySelector('[data-agent-name="'+a.name+'"] .worker-canvas');
-        if (!canvas) return;
+        var visual = document.querySelector('[data-agent-name="'+a.name+'"] .worker-scene');
+        if (!visual) return;
         if (window.WorkerScene && !scenes[a.name]) {
-          if (!canvas.getContext || !canvas.getContext('2d')) {
-            canvas.parentElement.innerHTML = '<div class="scene-fallback">ESCENA NO DISPONIBLE — CANVAS NO COMPATIBLE</div>';
-            return;
-          }
-          scenes[a.name] = new WorkerScene(canvas, {
+          scenes[a.name] = { setState: function(state) { visual.className='worker-visual worker-scene '+String(state).toLowerCase(); } };
             color: ({cyan:'#22d3ee',magenta:'#e879f9',gold:'#fbbf24',lime:'#a3e635'})[a.accent],
             flip: a.name === 'XAU-FLASH'
           });
-        } else if (!window.WorkerScene && !canvas.dataset.fallback) {
-          canvas.dataset.fallback = '1';
-          canvas.parentElement.innerHTML = '<div class="scene-fallback">ESCENA NO DISPONIBLE — BUILD ANTIGUA EN CACHÉ</div>';
         }
       });
     }
@@ -202,7 +215,7 @@
       var magicBadge = a.magics && a.magics.length ? a.magics.map(function(m){return 'M:'+m}).join(' ') : '';
       return '<article data-agent-name="'+a.name+'" class="station '+a.accent+' '+(a.moodClass||'')+'">'
         + '<div class="station-head"><div class="agent-title"><span class="agent-id">AGT-'+a.id+'</span><div><h2>'+a.name+'</h2><p>'+a.market+' <span style="color:var(--accent)">//</span> '+a.tf+' <span style="color:var(--accent)">//</span> MT5'+(magicBadge?' <span style="color:var(--accent);margin-left:6px;font-size:9px;border:1px solid var(--accent);padding:1px 4px">'+magicBadge+'</span>':'')+'</p></div></div><div class="status"><i></i>'+a.status+'</div></div>'
-        + '<div class="station-body"><div class="agent-scene"><canvas class="worker-canvas" width="120" height="80" aria-hidden="true"></canvas></div><div class="metrics" style="flex:1">'
+        + '<div class="station-body"><div class="agent-scene"><div class="worker-visual worker-scene" aria-label="Escena del trabajador"><div class="worker-monitor"></div><div class="worker-desk"></div><div class="worker-person"><div class="worker-head"></div><div class="worker-body"></div><div class="worker-arm left"></div><div class="worker-arm right"></div><div class="worker-leg left"></div><div class="worker-leg right"></div></div><div class="worker-z"></div></div></div><div class="metrics" style="flex:1">'
         + '<div class="metric"><label>BALANCE</label><strong>'+(a.balance==null?'—':money(a.balance))+'</strong></div>'
         + '<div class="metric"><label>FLOATING P&amp;L</label><strong class="'+(a.pnl<0?'negative':'positive')+'">'+(a.pnl==null?'—':((a.pnl>=0?'+':'-')+money(Math.abs(a.pnl))))+'</strong></div>'
         + '<div class="metric"><label>OPEN POSITIONS</label><strong>'+String(a.positions).padStart(2,'0')+'</strong></div>'
