@@ -71,11 +71,11 @@
     .status { display:flex; align-items:center; gap:7px; color:var(--accent); font:10px "Share Tech Mono",monospace; letter-spacing:.12em; }
     .status i { width:7px;height:7px;border-radius:50%;background:var(--accent); box-shadow:0 0 12px var(--accent); animation:pulse 1.4s infinite; }
     .station-body { display:flex; gap:18px; align-items:center; margin:18px 0 16px; position:relative; z-index:1; }
-    .agent-scene { flex:0 0 200px; height:134px; display:grid; place-items:center; border:1px solid color-mix(in srgb,var(--accent) 25%,transparent); background:rgba(0,0,0,.3); }
+    .agent-scene { flex:0 0 240px; height:160px; display:grid; place-items:center; border:1px solid color-mix(in srgb,var(--accent) 45%,transparent); background:linear-gradient(180deg,rgba(18,34,55,.96),rgba(3,8,16,.98)); box-shadow:inset 0 0 24px color-mix(in srgb,var(--accent) 12%,transparent),0 0 12px rgba(0,0,0,.5); }
     @media(max-width:800px) { .agent-scene{flex:0 0 160px;height:107px} }
     @media(max-width:480px) { .agent-scene{flex:0 0 130px;height:87px} }
-    .worker-canvas { width:100%; height:100%; image-rendering:pixelated; image-rendering:crisp-edges; }
-    .scene-fallback { color:var(--muted); font:10px "Share Tech Mono",monospace; text-align:center; padding:18px 0; border:1px dashed var(--line); width:100%; }
+    .worker-canvas { width:100%; height:100%; image-rendering:pixelated; image-rendering:crisp-edges; display:block; }
+    .scene-fallback { color:var(--danger); font:11px "Share Tech Mono",monospace; text-align:center; padding:18px 8px; border:1px dashed var(--danger); width:100%; }
     .metrics { display:grid; grid-template-columns:1fr 1fr; gap:13px 20px; }
     .metric label { display:block; color:var(--muted); font:10px "Share Tech Mono",monospace; margin-bottom:4px; }
     .metric strong { font:600 16px Orbitron,sans-serif; }
@@ -195,6 +195,7 @@
     const money = function(n) { return '$' + n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); };
     const time = function() { return new Date().toISOString().slice(11,19); };
     const initialBalance = Number(new URLSearchParams(location.search).get('initialBalance') || localStorage.getItem('mision-control-initial-balance') || '1350');
+    try { localStorage.setItem('mision-control-initial-balance', String(initialBalance)); } catch (e) {}
     const safeText = function(value) { return String(value == null ? '' : value).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); };
 
     function station(a, i) {
@@ -231,13 +232,19 @@
       var profit = Number(desk.profit||0);
       var symbolKey = agent.market==='GOLD' ? 'XAU' : 'USTEC';
       var fresh = Object.entries(ticks||{}).some(function(e){
-        return e[0].toUpperCase().includes(symbolKey) && e[1] && ((Date.now()/1000)-Number(e[1].time||e[1].time_msc/1000||0))<=Number((thresholds||{}).tick_stale_seconds||60);
+        var tick = e[1];
+        if (!e[0].toUpperCase().includes(symbolKey) || !tick) return false;
+        var timestamp = Number(tick.time || (tick.time_msc ? tick.time_msc / 1000 : 0));
+        /* A live broker can return time=0 while bid/ask are valid. In that case
+           the presence of a quote is stronger evidence than a missing timestamp. */
+        var hasQuote = Number(tick.bid || 0) > 0 || Number(tick.ask || 0) > 0 || Number(tick.last || 0) > 0;
+        return hasQuote && (!timestamp || ((Date.now()/1000)-timestamp)<=Number((thresholds||{}).tick_stale_seconds||60));
       });
       agent.positions = Number(desk.count || (desk.positions||[]).length);
       agent.pnl = profit;
       agent.magics = desk.magics || [];
-      if(!fresh){agent.status='SLEEPING';agent.moodClass='sleeping';agent.action='Mercado cerrado · oficina en reposo'}
-      else if(profit<Number((thresholds||{}).alert??-250)){agent.status='ALERT';agent.moodClass='alert';agent.action='Drawdown elevado · '+money(profit)}
+      if(profit<Number((thresholds||{}).alert??-250)){agent.status='ALERT';agent.moodClass='alert';agent.action='Drawdown elevado · '+money(profit)}
+      else if(!fresh){agent.status='SLEEPING';agent.moodClass='sleeping';agent.action='Mercado cerrado · oficina en reposo'}
       else if(profit<Number((thresholds||{}).stressed??0)&&agent.positions){agent.status='STRESSED';agent.moodClass='stressed';agent.action='Posiciones bajo presión · '+money(profit)}
       else if(profit>Number((thresholds||{}).energized??100)){agent.status='ENERGIZED';agent.moodClass='energized';agent.action='Momentum positivo · +'+money(profit)}
       else if(agent.positions){agent.status='WORKING';agent.moodClass='working';agent.action='Posiciones activas · gestionando exposición'}
