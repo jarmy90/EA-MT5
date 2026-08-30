@@ -1,6 +1,6 @@
-# MISIÓN CONTROL // Trading Operations Center
+# WAWA // Agentic Trading Station
 
-Misión Control is a local operations dashboard for monitoring autonomous MetaTrader 5 strategies. The frontend is a dependency-free HTML dashboard with Demo Mode and Live Mode; the optional Windows bridge exposes read-only MT5 telemetry through FastAPI.
+WAWA is a professional agentic trading operations station. The frontend is now a React + TypeScript + Vite dashboard with deterministic, explicitly labelled SIMULATION data; the existing optional Windows bridge exposes read-only MetaTrader 5 telemetry through FastAPI.
 
 ## Arranque por Remote Desktop
 
@@ -22,6 +22,12 @@ La API queda disponible en `http://127.0.0.1:8000`. La ventana de consola debe p
 - `GET /rates/{symbol}?timeframe=M15&count=200` — histórico OHLCV (`M1`, `M5`, `M15`, `M30`, `H1`, `H4`, `D1`)
 
 La API es de solo lectura y no envía órdenes.
+
+## Visión y arquitectura
+
+The station represents an organization working from data intake through research, strategy, risk governance, delivery, and human approval. Every visible agent state, event, queue item, artifact, and decision is derived from one deterministic demo snapshot. No demo P&L, orders, MT5 status, or Freebuff status is presented as live.
+
+The frontend stack is React, TypeScript, Vite, Framer Motion, Lucide React, and inline SVG/CSS. Recharts is available for the next charting phase but the initial trading chart is deterministic SVG to keep the first migration lightweight. See `docs/ARCHITECTURE.md`, `docs/EVENT_CONTRACT.md`, and `docs/REAL_INTEGRATIONS.md`.
 
 ## Estructura
 
@@ -81,6 +87,22 @@ floating_pnl = profit + swap + commission
 ```
 
 El mismo número aparece en los tres sitios. Los valores vienen directamente de MT5 sin redondeos intermedios.
+
+## Desarrollo y despliegue
+
+```bash
+bun install
+bun run dev
+bun run typecheck
+bun run build
+bun run preview
+```
+
+GitHub Pages se publica desde la raíz de `main` mediante `.github/workflows/deploy-pages.yml`. Vite usa `base: './'`, por lo que los assets funcionan bajo `/EA-MT5/`. La aplicación no se coloca dentro de `docs/`; esa carpeta contiene únicamente documentación.
+
+## Escenarios demo
+
+El selector permite reproducir `Normal Run`, `Risk Blocked`, `Build Failed` y `Human Approval`. Todos son deterministas y están marcados `SIMULATION`; no representan órdenes, P&L, conexión MT5 ni estado real.
 
 ## Frontend
 
