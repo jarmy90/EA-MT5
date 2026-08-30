@@ -27,7 +27,7 @@ La API es de solo lectura y no envía órdenes.
 
 The station represents an organization working from data intake through research, strategy, risk governance, delivery, and human approval. Every visible agent state, event, queue item, artifact, and decision is derived from one deterministic demo snapshot. No demo P&L, orders, MT5 status, or Freebuff status is presented as live.
 
-The frontend stack is React, TypeScript, Vite, Framer Motion, Lucide React, and inline SVG/CSS. Recharts is available for the next charting phase but the initial trading chart is deterministic SVG to keep the first migration lightweight. See `docs/ARCHITECTURE.md`, `docs/EVENT_CONTRACT.md`, and `docs/REAL_INTEGRATIONS.md`.
+The frontend stack is React, TypeScript, Vite, Framer Motion, Lucide React, and inline SVG/CSS. The primary view is four independent EA stations with a shared portfolio manager. Live mode polls `/telemetry` without inventing values; if the handshake is absent, the UI remains OFFLINE/UNAVAILABLE and offers deterministic simulation only as an explicit opt-in. See `docs/ARCHITECTURE.md`, `docs/EVENT_CONTRACT.md`, `docs/REAL_INTEGRATIONS.md`, and `docs/WAWA_LIVE_DASHBOARD_CONTRACT.md`.
 
 ## Estructura
 
@@ -106,4 +106,4 @@ El selector permite reproducir `Normal Run`, `Risk Blocked`, `Build Failed` y `H
 
 ## Frontend
 
-Live Mode es el modo predeterminado y consulta `/telemetry` cada pocos segundos para reflejar datos reales. No muestra cifras demo; si la API no está disponible, muestra un estado offline claro. Cada agente cambia entre desconectado, durmiendo, espera, trabajando, excitado, estresado o alerta según mercado, posiciones y beneficio flotante. Los muñecos pixel-art en cada tarjeta muestran visualmente el estado: dormidos con Zzz, tecleando, celebrando o en alerta.
+Live Mode es el modo predeterminado y consulta `/telemetry` cada segundo. Solo muestra datos reales cuando el backend confirma conexión; si falla, muestra `OFFLINE` y no sustituye valores por demo. La simulación se activa manualmente y usa el mismo componente de estación EA. Los estados visuales representan actividad, posición, beneficio, pérdida, bloqueo o desconexión.
