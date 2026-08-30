@@ -23,6 +23,6 @@ echo  Cierra esta ventana para detener la API.
 echo ================================================================
 echo.
 
-python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+python start_mision_control.py
 
 pause

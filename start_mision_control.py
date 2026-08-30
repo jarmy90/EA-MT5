@@ -1,8 +1,10 @@
-"""Arranque de Misión Control: python start_mision_control.py"""
+"""Launch Wawa from any directory: python start_mision_control.py"""
 from __future__ import annotations
 
 import importlib.util
 import os
+import shutil
+import socket
 import subprocess
 import sys
 import time
@@ -13,71 +15,96 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent
-ENV_FILE = ROOT / ".env"
-URL = "http://127.0.0.1:" + os.getenv("PORT", "8000")
+DIST = ROOT / "dist"
+PORT = int(os.getenv("PORT", "8000"))
+URL = f"http://127.0.0.1:{PORT}"
+
+
+def run(command: list[str], *, cwd: Path = ROOT, label: str) -> None:
+    print(f"[INFO] {label}...")
+    result = subprocess.run(command, cwd=cwd)
+    if result.returncode != 0:
+        raise SystemExit(f"[ERROR] {label} fallo con exit code {result.returncode}.")
 
 
 def dependencies_ready() -> bool:
-    return all(importlib.util.find_spec(name) for name in ("fastapi", "uvicorn", "MetaTrader5", "dotenv"))
+    return all(importlib.util.find_spec(name) for name in ("fastapi", "uvicorn", "dotenv"))
 
 
 def install_dependencies() -> None:
-    print("[INFO] Instalando dependencias necesarias...")
-    result = subprocess.run([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"], cwd=ROOT)
-    if result.returncode:
-        raise SystemExit("[ERROR] No se pudieron instalar las dependencias. Revisa Python y vuelve a intentarlo.")
+    run([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"], label="Instalando dependencias Python")
 
 
-def api_ready(url: str) -> bool:
+def ensure_bun() -> str:
+    bun = shutil.which("bun")
+    if not bun:
+        raise SystemExit("[ERROR] Bun no está instalado o no está en PATH. Instala Bun y vuelve a ejecutar este launcher.")
+    return bun
+
+
+def build_frontend(bun: str) -> None:
+    run([bun, "install", "--frozen-lockfile"], label="Instalando dependencias frontend")
+    run([bun, "run", "build"], label="Construyendo frontend Vite")
+    if not (DIST / "index.html").is_file():
+        raise SystemExit(f"[ERROR] El build terminó pero no existe {DIST / 'index.html'}.")
+
+
+def port_available(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        return sock.connect_ex(("127.0.0.1", port)) != 0
+
+
+def ready(url: str) -> bool:
     try:
-        with urllib.request.urlopen(url + "/status", timeout=1) as response:
+        with urllib.request.urlopen(url, timeout=1) as response:
             return response.status == 200
-    except (OSError, ValueError):
+    except OSError:
         return False
 
 
-if __name__ == "__main__":
-    if ENV_FILE.exists():
-        load_dotenv(ENV_FILE, override=False)
-    else:
-        print("[AVISO] No existe .env; se usará la sesión ya iniciada en MetaTrader 5.")
-
+def main() -> None:
+    load_dotenv(ROOT / ".env", override=False)
+    global PORT, URL
+    PORT = int(os.getenv("PORT", "8000"))
+    URL = f"http://127.0.0.1:{PORT}"
+    print(f"[INFO] Raíz del proyecto: {ROOT}")
     if not dependencies_ready():
         install_dependencies()
+    bun = ensure_bun()
+    build_frontend(bun)
+    if not port_available(PORT):
+        raise SystemExit(f"[ERROR] El puerto {PORT} ya está ocupado. Cierra el proceso anterior y vuelve a intentarlo.")
 
-    port = os.getenv("PORT", "8000")
-    URL = f"http://127.0.0.1:{port}"
-    print("[INFO] Comprobando MetaTrader 5...")
+    api = subprocess.Popen([sys.executable, "-m", "uvicorn", "api.main:app", "--host", "127.0.0.1", "--port", str(PORT)], cwd=ROOT)
+    server = subprocess.Popen([sys.executable, "-m", "http.server", str(PORT + 1), "--bind", "127.0.0.1"], cwd=DIST)
     try:
-        import MetaTrader5 as mt5
-        initialized = mt5.initialize()
-        logged_in = initialized and bool(mt5.terminal_info() and mt5.account_info())
-        if not logged_in:
-            if initialized:
-                mt5.shutdown()
-            print("[ERROR] Abre MetaTrader 5 e inicia sesión, luego vuelve a ejecutar este script.")
-            raise SystemExit(1)
-        print("[OK] MetaTrader 5 está abierto y conectado.")
-        mt5.shutdown()
-    except ImportError:
-        raise SystemExit("[ERROR] MetaTrader5 no está instalado. Ejecuta el launcher de nuevo.")
-
-    print(f"[INFO] Levantando API en {URL}...")
-    process = subprocess.Popen(
-        [sys.executable, "-m", "uvicorn", "api.main:app", "--host", "127.0.0.1", "--port", port],
-        cwd=ROOT,
-    )
-    for _ in range(30):
-        if api_ready(URL):
-            print(f"[OK] Misión Control disponible en {URL}")
-            webbrowser.open(URL)
-            print("[INFO] Navegador abierto. Esta ventana mantiene la API activa.")
-            try:
-                process.wait()
-            except KeyboardInterrupt:
+        for _ in range(30):
+            if ready(URL):
+                print(f"[OK] API disponible en {URL}")
+                frontend_url = f"http://127.0.0.1:{PORT + 1}"
+                print(f"[OK] Wawa disponible en {frontend_url}")
+                webbrowser.open(frontend_url)
+                print("[INFO] Navegador abierto. Pulsa Ctrl+C para detener API y frontend.")
+                while True:
+                    if api.poll() is not None:
+                        raise SystemExit("[ERROR] La API terminó inesperadamente.")
+                    if server.poll() is not None:
+                        raise SystemExit("[ERROR] El servidor frontend terminó inesperadamente.")
+                    time.sleep(1)
+            time.sleep(1)
+        raise SystemExit("[ERROR] El servidor no respondió dentro del tiempo esperado.")
+    except KeyboardInterrupt:
+        print("\n[INFO] Cerrando servicios...")
+    finally:
+        for process in (server, api):
+            if process.poll() is None:
                 process.terminate()
-            break
-        time.sleep(1)
-    else:
-        process.terminate()
-        raise SystemExit("[ERROR] La API no respondió a tiempo. Revisa los mensajes anteriores.")
+        for process in (server, api):
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+
+
+if __name__ == "__main__":
+    main()
