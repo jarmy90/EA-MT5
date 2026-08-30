@@ -10,12 +10,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@types/three": "^0.185.4",
     "@vitejs/plugin-react": "latest",
     "framer-motion": "latest",
     "lucide-react": "latest",
     "react": "latest",
     "react-dom": "latest",
     "recharts": "latest",
+    "three": "^0.185.1",
     "typescript": "latest",
     "vite": "latest"
   },
