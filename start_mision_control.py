@@ -76,7 +76,7 @@ def main() -> None:
         raise SystemExit(f"[ERROR] El puerto {PORT} ya está ocupado. Cierra el proceso anterior y vuelve a intentarlo.")
 
     api = subprocess.Popen([sys.executable, "-m", "uvicorn", "api.main:app", "--host", "127.0.0.1", "--port", str(PORT)], cwd=ROOT)
-    server = subprocess.Popen([sys.executable, "-m", "http.server", str(PORT + 1), "--bind", "127.0.0.1"], cwd=DIST)
+    server = subprocess.Popen([bun, "run", "preview", "--host", "127.0.0.1", "--port", str(PORT + 1)], cwd=ROOT)
     try:
         for _ in range(30):
             if ready(URL):
