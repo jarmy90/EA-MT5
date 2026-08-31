@@ -1,1 +1,0 @@
-"""Misión Control local API."""

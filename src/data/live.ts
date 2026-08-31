@@ -15,6 +15,16 @@ export function mapLiveTelemetry(raw: RawTelemetry): DemoState {
   const account = raw.account; const floating = eas.reduce((sum, ea) => sum + ea.metrics.floatingPnl, 0); const now = new Date().toISOString(); return { eas, markets: Object.entries(raw.ticks || {}).map(([symbol, tick]) => ({ symbol, bid: tick.bid, ask: tick.ask, last: tick.last, timestamp: String(tick.time || tick.time_msc || 'unavailable'), provenance: connected ? 'LIVE · /telemetry' : 'UNAVAILABLE' })), account: { balance: account?.balance, equity: account?.equity, profit: account?.profit, timestamp: now, provenance: connected ? 'LIVE · /telemetry' : 'UNAVAILABLE' }, portfolio: { balance: account?.balance, equity: account?.equity, floatingPnl: account?.profit ?? floating, connectedEAs: connected ? eas.length : 0, openPositions: eas.reduce((sum, ea) => sum + ea.positions.length, 0), globalState: connected ? 'LIVE' : 'OFFLINE' }, events: [], scenario: 'EA Offline', cursor: 0, simulation: false }
 }
 
-function gatewayUrl(): string { return String(import.meta.env.VITE_WAWA_GATEWAY_URL || import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/$/, '') }
-export function hasConfiguredGateway(): boolean { return /^https:\/\//i.test(gatewayUrl()) || (import.meta.env.DEV && /^https?:\/\//i.test(gatewayUrl())) }
+const BRIDGE_KEY = 'wawa_bridge_url'
+
+// El bridge puede resolverse en tiempo de ejecución, no solo al compilar:
+//   1) ?bridge=https://... en la URL (se guarda para las siguientes visitas)
+//   2) la URL guardada en localStorage
+//   3) la env VITE_WAWA_GATEWAY_URL / VITE_API_BASE_URL (compilación)
+//   4) el túnel que sirve la propia página (mismo origen en localhost o trycloudflare)
+function bridgeFromQuery(): string { const value = new URLSearchParams(window.location.search).get('bridge'); if (value && /^https?:\/\//i.test(value)) { const cleaned = value.trim().replace(/\/+$/, ''); try { window.localStorage.setItem(BRIDGE_KEY, cleaned) } catch { /* sin persistencia */ } return cleaned } return '' }
+function bridgeFromStorage(): string { try { return (window.localStorage.getItem(BRIDGE_KEY) || '').trim().replace(/\/+$/, '') } catch { return '' } }
+export function setBridgeUrl(url: string): void { try { window.localStorage.setItem(BRIDGE_KEY, url.trim().replace(/\/+$/, '')) } catch { /* sin persistencia */ } }
+export function gatewayUrl(): string { const fromQuery = bridgeFromQuery(); if (fromQuery) return fromQuery; const fromStorage = bridgeFromStorage(); if (fromStorage) return fromStorage; const fromEnv = String(import.meta.env.VITE_WAWA_GATEWAY_URL || import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, ''); if (fromEnv) return fromEnv; const host = window.location.hostname; if (host === 'localhost' || host === '127.0.0.1' || host.includes('trycloudflare.com')) return window.location.origin.replace(/\/+$/, ''); return '' }
+export function hasConfiguredGateway(): boolean { const url = gatewayUrl(); return /^https:\/\//i.test(url) || (import.meta.env.DEV && /^https?:\/\//i.test(url)) }
 export async function fetchLiveTelemetry(signal?: AbortSignal): Promise<DemoState> { const base = gatewayUrl(); if (!hasConfiguredGateway()) throw new Error('No public telemetry gateway configured'); const health = await fetch(`${base}/health`, { signal, cache: 'no-store' }); if (!health.ok) throw new Error(`Gateway health HTTP ${health.status}`); const response = await fetch(`${base}/telemetry`, { signal, cache: 'no-store' }); if (!response.ok) throw new Error(`Telemetry HTTP ${response.status}`); return mapLiveTelemetry(await response.json() as RawTelemetry) }
