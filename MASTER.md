@@ -100,7 +100,7 @@ Historical WAWA contract and notice documents remain as documentation records on
 
 ## Current delivery
 
-Structural delivery commit: `927274c084450c95ce9b51c1bf5f92f8d0b3a7e0` (`Make Quantora Orbit the sole root web app`). The remote `origin/main` matches this commit before this record-only update.
+Structural delivery commit: `927274c084450c95ce9b51c1bf5f92f8d0b3a7e0` (`Make Quantora Orbit the sole root web app`). Final record commit: `d9dfa6a28b1706e96fab77e76d7789d4ac8aea79` (`Finalize Quantora Orbit delivery records`). Local `main` and `origin/main` match the final commit.
 
 The managed preview URL is:
 

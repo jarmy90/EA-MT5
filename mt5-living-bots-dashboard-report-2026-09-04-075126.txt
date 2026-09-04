@@ -117,4 +117,4 @@ DELIVERY ZIP
 `mt5-living-bots-dashboard.zip.txt` is generated from the tracked Git tree after the final record update. It excludes Git metadata, node_modules, .next, virtual environments, .env files, caches, logs, and unrelated untracked workspace files. The archive is validated with `unzip -t` and contains the active Quantora Orbit files, isolated read-only bridge, Windows launchers, documentation, and legacy archive directory.
 
 FINAL RECORD UPDATE
-The structural implementation commit is `927274c084450c95ce9b51c1bf5f92f8d0b3a7e0`; the final record-only commit is created after this report update. The final remote SHA is verified separately after that commit.
+The structural implementation commit is `927274c084450c95ce9b51c1bf5f92f8d0b3a7e0`. The final record commit is `d9dfa6a28b1706e96fab77e76d7789d4ac8aea79` (`Finalize Quantora Orbit delivery records`), and local `main` matches `origin/main`.
