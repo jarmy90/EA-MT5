@@ -1,6 +1,6 @@
 # Quantora Orbit Master Record
 
-**Updated:** 2026-09-04T07:51:26Z
+**Updated:** 2026-09-04T08:11:31Z
 **Project:** Quantora Orbit (`jarmy90/EA-MT5`)
 **Workspace root:** `/home/daytona/codebase`
 **Branch:** `main`
@@ -100,6 +100,8 @@ Historical WAWA contract and notice documents remain as documentation records on
 
 ## Current delivery
 
+Structural delivery commit: `927274c084450c95ce9b51c1bf5f92f8d0b3a7e0` (`Make Quantora Orbit the sole root web app`). The remote `origin/main` matches this commit before this record-only update.
+
 The managed preview URL is:
 
 `https://3000-77989083-26a3-4856-867e-785ebe850fd8.daytonaproxy01.net/`
@@ -113,3 +115,5 @@ The deployment configuration is valid with install command `bun install` and bui
 - A temporary `trycloudflare.com` URL changes when the tunnel restarts; use a named tunnel for a durable public URL.
 - Exact EA attribution requires the real MT5 magic numbers or comments in `AGENT_MAP`.
 - The bridge remains intentionally read-only.
+- Production deployment URL: none yet; hosting check is deployable, but first deployment requires the hosting Deploy control.
+- Delivery ZIP: `mt5-living-bots-dashboard.zip.txt`, generated from the final tracked tree after the record update and validated with `unzip -t`.

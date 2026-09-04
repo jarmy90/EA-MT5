@@ -86,7 +86,7 @@ Preview status: running, listening, HTTP 200, port 3000.
 This is a public preview URL, not a production deployment. No production deployment URL exists yet; the hosting configuration is deployable with bun install and bun run build, but the first production deployment must be initiated from the hosting Deploy control.
 
 GIT DELIVERY
-The repository is on main and the current task changes are ready for commit and push. The unrelated .claude/ directory was preserved and excluded from delivery staging.
+The structural delivery was committed and pushed to main as `927274c084450c95ce9b51c1bf5f92f8d0b3a7e0` (`Make Quantora Orbit the sole root web app`). The unrelated .claude/ directory was preserved and excluded from delivery staging. This final record update is committed separately so the repository metadata remains auditable.
 
 SECURITY
 - No real MT5 credentials or bridge token values are included in this report.
@@ -112,3 +112,9 @@ LIMITATIONS
 - A temporary trycloudflare.com URL changes when restarted; a named tunnel is needed for a durable public URL.
 - Exact EA attribution requires real magic numbers or comments in AGENT_MAP.
 - No financial action or trade execution is enabled.
+
+DELIVERY ZIP
+`mt5-living-bots-dashboard.zip.txt` is generated from the tracked Git tree after the final record update. It excludes Git metadata, node_modules, .next, virtual environments, .env files, caches, logs, and unrelated untracked workspace files. The archive is validated with `unzip -t` and contains the active Quantora Orbit files, isolated read-only bridge, Windows launchers, documentation, and legacy archive directory.
+
+FINAL RECORD UPDATE
+The structural implementation commit is `927274c084450c95ce9b51c1bf5f92f8d0b3a7e0`; the final record-only commit is created after this report update. The final remote SHA is verified separately after that commit.
