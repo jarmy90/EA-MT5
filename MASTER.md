@@ -1,6 +1,6 @@
 # Quantora Orbit Master Record
 
-**Updated:** 2026-09-04T08:11:31Z
+**Updated:** 2026-09-04T08:17:15Z
 **Project:** Quantora Orbit (`jarmy90/EA-MT5`)
 **Workspace root:** `/home/daytona/codebase`
 **Branch:** `main`
@@ -100,7 +100,7 @@ Historical WAWA contract and notice documents remain as documentation records on
 
 ## Current delivery
 
-Structural delivery commit: `927274c084450c95ce9b51c1bf5f92f8d0b3a7e0` (`Make Quantora Orbit the sole root web app`). Final record commit: `d9dfa6a28b1706e96fab77e76d7789d4ac8aea79` (`Finalize Quantora Orbit delivery records`). Local `main` and `origin/main` match the final commit.
+Structural delivery commit: `927274c084450c95ce9b51c1bf5f92f8d0b3a7e0` (`Make Quantora Orbit the sole root web app`). Delivery-record commits were pushed afterward to keep the audit trail current; the final repository SHA is verified in the delivery handoff and by `git rev-parse HEAD` versus `git ls-remote origin refs/heads/main`.
 
 The managed preview URL is:
 
