@@ -1,63 +1,115 @@
 # Quantora Orbit Master Record
 
-**Updated:** 2026-09-04T07:11:07Z
+**Updated:** 2026-09-04T07:51:26Z
 **Project:** Quantora Orbit (`jarmy90/EA-MT5`)
 **Workspace root:** `/home/daytona/codebase`
 **Branch:** `main`
 **Remote:** `https://github.com/jarmy90/EA-MT5.git`
 
-## Architecture
+## Root-cause resolution
 
-The active application is Next.js 15.5.2 with React 19, TypeScript, Three.js, React Three Fiber, Drei, Rapier, postprocessing, Zod, and a persistent Node server. `app/` contains the App Router entrypoint; `components/` contains the HUD, WebSocket provider, scene, and shader entity; `lib/schema.ts` defines the normalized telemetry contract; `server.ts` serves Next.js and `/ws`; `server/mock.ts` provides deterministic simulation telemetry.
+The confusion came from two different applications being present in the same repository. The former Vite/WAWA/Autonomous Business Lab app had a root `index.html`, `vite.config.ts` with `base: '/EA-MT5/'`, and `src/` files. Running that app or opening the old `8001/EA-MT5/` route showed the old interface. Quantora Orbit itself was already the Next.js application served by `server.ts` on port `3000`.
 
-The MT5 boundary is a separate read-only Python FastAPI adapter. It reads the already-open MetaTrader 5 desktop terminal through the official `MetaTrader5` package, exposes `/health` and `/telemetry`, and never exposes an order execution endpoint. The cloud server polls the adapter over `MT5_BRIDGE_HTTP_URL`, validates/normalizes the payload, and forwards it to the browser over its own WebSocket.
+The obsolete Vite entrypoint and old WAWA launcher artifacts were moved, not deleted, to `legacy/autonomous-business-lab/`. The root now has one active web entrypoint: Next.js `app/page.tsx` served by `server.ts`. No root script starts the legacy app.
 
-## Security boundary
+## Active architecture
 
-- MT5 login and password are environment-only and are not stored in source, documentation values, Git history, or published artifacts.
-- `BRIDGE_TOKEN` is the preferred shared bearer-token variable. `MT5_BRIDGE_TOKEN` remains supported for compatibility.
-- The bridge requires `Authorization: Bearer <token>` on `/health` and `/telemetry` whenever a token is configured.
-- The browser does not receive MT5 credentials or the bridge token.
-- The tunnel should expose only `http://127.0.0.1:8000`; the MT5 terminal and router ports remain private.
-- The adapter is read-only: only `account_info`, `terminal_info`, `positions_get`, `symbol_info_tick`, and `copy_rates_from_pos` are used.
+Quantora Orbit is Next.js 15.5.2 with React 19, TypeScript, Three.js, React Three Fiber, Drei, Rapier, postprocessing, Zod, and a persistent Node server. The active files are `app/`, `components/`, `lib/`, `server.ts`, `server/mock.ts`, `package.json`, and `bun.lock`. `components/Scene.tsx` and `components/SphereBot.tsx` render the four animated 3D sphere entities.
+
+The MT5 boundary is separate and read-only:
+
+```text
+MetaTrader 5 desktop on Windows
+  -> official Python MetaTrader5 package
+  -> api/main.py FastAPI bridge at 127.0.0.1:8000
+  -> authenticated HTTPS tunnel exposing only the bridge
+  -> server.ts polls MT5_BRIDGE_HTTP_URL server-side
+  -> browser WebSocket /ws on port 3000
+  -> Quantora Orbit HUD and four spheres
+```
+
+The browser never connects directly to MT5 and never receives MT5 credentials or `BRIDGE_TOKEN`.
+
+## Final ports and routes
+
+| Purpose | Address | Status |
+| --- | --- | --- |
+| Quantora Orbit web | `http://localhost:3000/` | Active |
+| Quantora Orbit WebSocket | `ws://localhost:3000/ws` | Active |
+| Private MT5 bridge health | `http://127.0.0.1:8000/health` | Active |
+| Private MT5 bridge telemetry | `http://127.0.0.1:8000/telemetry` | Active |
+| Port 8001 | none | Not used |
+| `/EA-MT5/` | none | Not an active route |
+
+The server sends `Cache-Control: no-store, max-age=0` and `Pragma: no-cache` so cache does not obscure the active runtime. The root route is `/`, not `/EA-MT5/`.
+
+## Windows launchers
+
+- `start_mision_control.bat`: starts only the read-only FastAPI MT5 bridge on `127.0.0.1:8000`.
+- `START_ORBIT.bat`: starts only the root Quantora Orbit server on port `3000` and opens `http://localhost:3000/`.
+- `START_ALL.bat`: starts the bridge and Orbit, prints all four active addresses, and opens only the Orbit root.
+- `STOP_ALL.bat`: targets the launcher windows named Quantora Orbit and avoids generic Python, Node, Bun, or MT5 process termination.
+- `WINDOWS_QUICK_START.md`: one-step Windows setup and Cloudflare Tunnel instructions.
+
+The bridge launcher prefers `.venv\Scripts\python.exe` when available. It does not open any old dashboard.
+
+## Legacy isolation
+
+Moved to `legacy/autonomous-business-lab/`:
+
+- `index.html`
+- `vite.config.ts`
+- `src/`
+- `static/`
+- `start_wawa_mobile.py`
+- `iniciar_wawa.cmd`
+- `WAWA_WINDOWS_INSTALLER.zip`
+- `mt5-bots-dashboard.zip`
+- `quantora-orbit.zip`
+
+`api/`, `mt5_bridge/`, `requirements.txt`, `api/agents.py`, `start_mision_control.py`, and the root bridge launcher were preserved as the current MT5 integration. No source files were deleted; the old application is archived and explicitly marked inactive.
+
+Historical WAWA contract and notice documents remain as documentation records only. Their references to WAWA, Vite, GitHub Pages, or the former contract are not active runtime wiring.
+
+## Security and read-only boundary
+
+- `BRIDGE_TOKEN` is the preferred shared Bearer token; `MT5_BRIDGE_TOKEN` remains compatible.
+- `/health` and `/telemetry` require authentication whenever a token is configured.
+- MT5 login and password remain environment-only and were not written to source, docs, reports, ZIP output, or Git.
+- The bridge uses only read operations: `account_info`, `terminal_info`, `positions_get`, `symbol_info_tick`, `copy_rates_from_pos`, and connection lifecycle calls.
+- No order send, order check, order modify, order close, cancel, or position mutation call exists in `api/` or `mt5_bridge/`.
+- Real MT5 LIVE status is not claimed by cloud tests; it requires the user's Windows terminal and bridge.
 
 ## Verification record
 
 - `bun install --frozen-lockfile`: PASS.
-- `bun tsc -b --noEmit`: PASS.
-- `bun run lint`: PASS using the noninteractive ESLint 9 configuration.
+- `bun run typecheck`: PASS.
+- `bun run lint`: PASS.
 - `bun run build`: PASS; Next.js production build generated successfully.
-- `python3 -m py_compile start_mision_control.py api/main.py mt5_bridge/service.py`: PASS.
-- Managed preview: PASS; ready on port 3000 and returned HTTP 200.
-- Managed preview WebSocket: PASS; returned valid simulation telemetry with 4 bots and initial balance 1350.
-- Bridge auth test with disposable token: PASS; no token 401, wrong token 401, correct token `/health` 200, correct token `/telemetry` 200.
-- Trading-operation scan: PASS; no order-send, order-check, modify, close, or cancel call exists in the bridge code.
-- Real MT5 `/health` and live telemetry: NOT RUN in cloud; the Windows-only `MetaTrader5` package requires the user's laptop and active MT5 terminal.
-- Full `python3 -m pip install -r requirements.txt`: BLOCKED in Linux cloud because the official `MetaTrader5` wheel is Windows-only. Run it on Windows.
+- `python3 -m py_compile start_mision_control.py api/main.py api/agents.py mt5_bridge/service.py tools/list_magics.py tools/test_agents.py`: PASS.
+- In-process bridge auth with disposable token: no token `401`, wrong token `401`, correct `/health` `200`, correct `/telemetry` `200`.
+- Read-only operation scan: PASS; no trade execution symbols found.
+- Root old entrypoint count: `0`.
+- Root old WAWA launcher count: `0`.
+- Port `8001`: NOT LISTENING in the cloud workspace.
+- Managed preview restart: PASS; ready on port `3000`.
+- Served root: HTTP `200`, contains `QUANTORA`; does not contain `Autonomous Business Lab`.
+- Managed preview WebSocket: PASS; schema-valid telemetry, 4 bots, source `mock`.
+- `python3 -m pytest -q tools/test_agents.py`: unavailable because `pytest` is not installed in the workspace; Python syntax and bridge auth checks pass.
+- Real Windows `MetaTrader5` connection: NOT RUN in Linux cloud; verify on the laptop with MT5 open.
 
-## Laptop connection flow
+## Current delivery
 
-1. Clone or extract the repository.
-2. In PowerShell, enter the repository folder.
-3. Confirm Python 3.10+ and Node.js 20+.
-4. Create and activate `.venv`.
-5. Install `requirements.txt` inside `.venv`.
-6. Create a local `.env` containing `BRIDGE_TOKEN`, `MT5_SERVER`, `MT5_SYMBOLS`, and optionally MT5 login values. Prefer the existing open MT5 session and leave login/password empty unless needed.
-7. Generate the token locally with PowerShell; never paste it into chat.
-8. Keep MT5 open and logged in.
-9. Run `start_mision_control.bat`.
-10. Test local `/health`, then test 401 without a token and 200 with the token.
-11. Install `cloudflared` with `winget`.
-12. Run a named Cloudflare Tunnel or a temporary `trycloudflare.com` tunnel to `http://127.0.0.1:8000`.
-13. Copy only the HTTPS hostname printed by `cloudflared`, without `/health` or `/telemetry`.
-14. Store that URL privately as the server-side `MT5_BRIDGE_HTTP_URL` value in the dashboard environment.
-15. Store the same local token as the dashboard server-side `BRIDGE_TOKEN` value.
-16. Restart the dashboard server and verify the browser shows `MT5 LIVE`, not `SIMULACIÓN`.
-17. Identify EAs using `AGENT_MAP` with their magic numbers or comments; never guess attribution for live trading decisions.
+The managed preview URL is:
+
+`https://3000-77989083-26a3-4856-867e-785ebe850fd8.daytonaproxy01.net/`
+
+The deployment configuration is valid with install command `bun install` and build command `bun run build`. A production deployment URL does not exist until the first deployment is started from the hosting Deploy control.
 
 ## Pending limitations
 
-- No real laptop MT5 session or Cloudflare tunnel is connected from this cloud workspace.
-- The cloud preview remains in deterministic mock mode until the dashboard server receives a reachable HTTPS bridge URL and matching bearer token.
-- The current adapter's default four EA names and magic numbers are documented in `api/main.py`; set `AGENT_MAP` for exact account-specific attribution.
-- Do not enable trade execution: the delivered bridge has no trade execution path.
+- The cloud workspace cannot verify the Windows-only `MetaTrader5` package or the user's active terminal.
+- The user must run the bridge and Cloudflare Tunnel on Windows and configure `DATA_SOURCE=bridge`, `MT5_BRIDGE_HTTP_URL`, and `BRIDGE_TOKEN` privately on the public dashboard server.
+- A temporary `trycloudflare.com` URL changes when the tunnel restarts; use a named tunnel for a durable public URL.
+- Exact EA attribution requires the real MT5 magic numbers or comments in `AGENT_MAP`.
+- The bridge remains intentionally read-only.

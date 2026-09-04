@@ -137,7 +137,11 @@ function offlineTelemetry(): Telemetry {
 async function main() {
   await app.prepare();
   const handle = app.getRequestHandler();
-  const server = createServer((request, response) => handle(request, response));
+  const server = createServer((request, response) => {
+    response.setHeader("Cache-Control", "no-store, max-age=0");
+    response.setHeader("Pragma", "no-cache");
+    return handle(request, response);
+  });
   const wss = new WebSocketServer({ noServer: true });
   let latest: Telemetry = mockTelemetry(0);
   let mockTick = 0;

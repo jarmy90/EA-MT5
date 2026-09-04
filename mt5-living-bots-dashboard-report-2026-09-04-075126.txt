@@ -1,0 +1,114 @@
+QUANTORA ORBIT DELIVERY REPORT
+Date (UTC): 2026-09-04T07:51:26Z
+Repository: https://github.com/jarmy90/EA-MT5.git
+Branch: main
+Workspace root: /home/daytona/codebase
+
+CAUSE ROOT
+The old interface appeared because the repository contained a second Vite/WAWA application with a root index.html, vite.config.ts using base /EA-MT5/, and src/. The old Windows launchers could start that application or the old Python service on ports 8000/8001. Quantora Orbit was the separate Next.js application served by server.ts on port 3000. The old URL 127.0.0.1:8001/EA-MT5/ was not the Quantora Orbit web application.
+
+RESOLUTION
+Quantora Orbit is now the only active root web application. The former Vite/WAWA/Autonomous Business Lab web files and launch artifacts were moved to legacy/autonomous-business-lab/ for traceability. No current MT5 bridge files were removed or moved.
+
+MOVED FILES
+- index.html
+- vite.config.ts
+- src/
+- static/
+- start_wawa_mobile.py
+- iniciar_wawa.cmd
+- WAWA_WINDOWS_INSTALLER.zip
+- mt5-bots-dashboard.zip
+- quantora-orbit.zip
+
+ARCHIVED FILES STATUS
+The files above remain available under legacy/autonomous-business-lab/ and are explicitly inactive. No source files were deleted. Historical WAWA contract documents remain documentation records only and are not runtime entrypoints.
+
+FILES CREATED OR UPDATED
+- START_ORBIT.bat: starts only Quantora Orbit on localhost:3000 and opens the root URL.
+- START_ALL.bat: starts only the read-only bridge on 127.0.0.1:8000 and Orbit on localhost:3000, then opens only Orbit.
+- STOP_ALL.bat: targets only Quantora Orbit launcher windows.
+- start_mision_control.bat: clarified as bridge-only and prefers .venv Python.
+- WINDOWS_QUICK_START.md: simple Windows and Cloudflare Tunnel instructions.
+- README.md: active architecture, port policy, setup, public connection, and legacy warning.
+- MASTER.md: final continuity and verification record.
+- docs/ARCHITECTURE.md: current architecture and port policy.
+- docs/REAL_INTEGRATIONS.md: current MT5 integration boundary.
+- app/page.tsx: accessible QUANTORA ORBIT root marker.
+- server.ts: no-store response headers for the active dashboard.
+- package.json: explicit start:orbit script.
+- mt5-living-bots-dashboard-report-2026-09-04-075126.txt: this report.
+
+FINAL PORTS AND ROUTES
+- Active web dashboard: http://localhost:3000/
+- Active browser WebSocket: ws://localhost:3000/ws
+- Private bridge health: http://127.0.0.1:8000/health
+- Private bridge telemetry: http://127.0.0.1:8000/telemetry
+- Port 8001: no active listener; not used.
+- /EA-MT5/: not an active route.
+
+RUNTIME ARCHITECTURE
+MetaTrader 5 desktop on Windows
+  -> official Python MetaTrader5 package
+  -> FastAPI read-only bridge at 127.0.0.1:8000
+  -> HTTPS tunnel exposing only the bridge API
+  -> private server.ts polling MT5_BRIDGE_HTTP_URL
+  -> browser WebSocket at /ws on port 3000
+  -> Quantora Orbit HUD and four 3D sphere entities
+
+COMMANDS AND RESULTS
+- bun install --frozen-lockfile: PASS; no changes.
+- bun run typecheck: PASS.
+- bun run lint: PASS.
+- bun run build: PASS; Next.js production build completed.
+- python3 -m py_compile start_mision_control.py api/main.py api/agents.py mt5_bridge/service.py tools/list_magics.py tools/test_agents.py: PASS.
+- BRIDGE_TOKEN=unit-test-token python3 in-process FastAPI test: PASS; no token 401, wrong token 401, correct /health 200, correct /telemetry 200.
+- Read-only scan of api/ and mt5_bridge/: PASS; no order_send, order_check, order_modify, order_close, cancel, or position mutation calls.
+- Root old entrypoint files: 0.
+- Root old WAWA launcher files: 0.
+- Port 8001 listener check: NOT LISTENING.
+- Active legacy launcher/runtime scan: NONE. The only /EA-MT5/ reference in an active launcher is an explicit warning that the path is obsolete.
+- Credential literal scan of active source: PASS. No real MT5 login, password, or bridge token was written.
+- python3 -m pytest -q tools/test_agents.py: NOT RUN; pytest is not installed in this workspace. This is an environment limitation, not a source failure.
+
+CONTENT VERIFICATION
+- Managed preview root: HTTP 200.
+- Active HTML contains QUANTORA marker.
+- Active HTML does not contain Autonomous Business Lab.
+- Managed preview WebSocket: PASS; valid telemetry frame, 4 bots, source mock.
+- Cache headers: active Node server sends Cache-Control: no-store, max-age=0 and Pragma: no-cache.
+
+PREVIEW AND PUBLIC URL
+Verified managed preview URL:
+https://3000-77989083-26a3-4856-867e-785ebe850fd8.daytonaproxy01.net/
+
+Preview status: running, listening, HTTP 200, port 3000.
+This is a public preview URL, not a production deployment. No production deployment URL exists yet; the hosting configuration is deployable with bun install and bun run build, but the first production deployment must be initiated from the hosting Deploy control.
+
+GIT DELIVERY
+The repository is on main and the current task changes are ready for commit and push. The unrelated .claude/ directory was preserved and excluded from delivery staging.
+
+SECURITY
+- No real MT5 credentials or bridge token values are included in this report.
+- The MT5 bridge remains read-only.
+- MT5 credentials belong only in local/private environment settings.
+- The browser does not receive MT5 credentials or BRIDGE_TOKEN.
+- Real MT5 LIVE status was not claimed from the cloud workspace.
+
+WINDOWS STARTUP
+1. Open MetaTrader 5 and keep the account connected.
+2. Complete local .env and BRIDGE_TOKEN setup from WINDOWS_QUICK_START.md.
+3. Double-click START_ALL.bat.
+4. Open http://localhost:3000/ only.
+5. Use 127.0.0.1:8000 only for private bridge checks.
+6. Do not use 127.0.0.1:8001/EA-MT5/.
+7. Use cloudflared to expose only 127.0.0.1:8000 over HTTPS.
+8. Configure MT5_BRIDGE_HTTP_URL and BRIDGE_TOKEN privately on the public dashboard server.
+
+LIMITATIONS
+- The cloud workspace is Linux and cannot verify the Windows-only MetaTrader5 package or the user's active desktop terminal.
+- The real MT5 bridge and tunnel must be started on the user's Windows laptop.
+- The public dashboard must have a production deployment before it can poll the laptop tunnel continuously.
+- A temporary trycloudflare.com URL changes when restarted; a named tunnel is needed for a durable public URL.
+- Exact EA attribution requires real magic numbers or comments in AGENT_MAP.
+- No financial action or trade execution is enabled.

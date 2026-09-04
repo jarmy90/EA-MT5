@@ -12,7 +12,7 @@ const Scene = dynamic(
 export default function Home() {
   return (
     <WebSocketProvider>
-      <main>
+      <main aria-label="QUANTORA ORBIT">
         <Scene />
         <HUD />
       </main>

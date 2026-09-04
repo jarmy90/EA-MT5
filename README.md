@@ -1,100 +1,172 @@
 # Quantora Orbit
 
-Quantora Orbit is a cinematic real-time command center for four MetaTrader 5 Expert Advisors. The repository now runs the complete Next.js 15 + React 19 + TypeScript application from the supplied archive, with a persistent Node server and browser WebSocket endpoint.
+Quantora Orbit is the **only active web application** in this repository. It is a cinematic real-time dashboard for four MetaTrader 5 Expert Advisors, built with Next.js 15, React 19, TypeScript, Three.js and React Three Fiber.
 
-## Current status
+## Correct addresses
 
-- The archive was present at `quantora-orbit.zip` and verified as a valid 20-file package.
-- Its application files are installed at the repository root.
-- Mock telemetry is the safe default, so the web app can start without a terminal or account credentials.
-- The existing Python FastAPI read-only MT5 adapter remains available and can feed Orbit through `MT5_BRIDGE_HTTP_URL`.
-- MT5 credentials are server-side configuration only and are never sent to the browser.
-- The HTTP bridge supports an optional bearer token through `BRIDGE_TOKEN` (`MT5_BRIDGE_TOKEN` remains supported for compatibility).
+| Purpose | Address | Meaning |
+| --- | --- | --- |
+| Quantora Orbit web | `http://localhost:3000/` | Active dashboard |
+| Quantora Orbit WebSocket | `ws://localhost:3000/ws` | Browser telemetry transport |
+| MT5 bridge health | `http://127.0.0.1:8000/health` | Private read-only API |
+| MT5 bridge telemetry | `http://127.0.0.1:8000/telemetry` | Private read-only API |
+| Port 8001 | none | Not used |
+| `/EA-MT5/` | none | Not an active route |
 
-## Run locally
+**Do not open `http://127.0.0.1:8001/EA-MT5/`.** That address belonged to an old Python/Vite dashboard and is not Quantora Orbit.
 
-```bash
-bun install
-bun run dev
+## Active application
+
+The root web application is:
+
+```text
+app/layout.tsx
+app/page.tsx
+app/globals.css
+components/
+lib/
+server.ts
+server/mock.ts
+package.json
+bun.lock
 ```
 
-Open `http://localhost:3000`. The preview shows four animated entities, PnL-driven visual states, Cinema mode, optional Web Audio, and local Moments history. Mock data is explicitly labelled `SIMULACIÓN`.
+It starts on port `3000`, binds to `0.0.0.0` for managed hosting, and keeps deterministic simulation clearly labelled `SIMULACIÓN`. The four 3D sphere entities are rendered by `components/Scene.tsx` and `components/SphereBot.tsx`.
 
-## Connect the existing MT5 adapter
+## Quick local start on Windows
 
-The repository already contains a read-only FastAPI adapter under `api/` and `mt5_bridge/`. Run that adapter on the same machine as the logged-in MT5 desktop terminal, then configure Orbit with:
+1. Open MetaTrader 5 and leave its account connected.
+2. Complete the first-time setup below.
+3. Double-click `START_ALL.bat`.
+4. Wait for the two console windows.
+5. Open `http://localhost:3000/`.
+
+The launchers are explicit:
+
+- `start_mision_control.bat` starts only the read-only MT5 bridge on `127.0.0.1:8000`.
+- `START_ORBIT.bat` starts only Quantora Orbit on `localhost:3000`.
+- `START_ALL.bat` starts both and opens only `http://localhost:3000/`.
+- `STOP_ALL.bat` targets only the Quantora Orbit launcher windows.
+
+## First-time bridge setup
+
+Open PowerShell in the repository folder. Type only the commands, not the prompt text such as `PS C:\Users\j>`.
+
+```powershell
+py --version
+node --version
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+```
+
+Create `.env` locally. Do not commit it or send its contents anywhere:
+
+```powershell
+@(
+  "DATA_SOURCE=bridge"
+  "MT5_SERVER=ICMarketsEU-MT5-5"
+  "MT5_SYMBOLS=USTEC,XAUUSD"
+  "BRIDGE_HOST=127.0.0.1"
+  "BRIDGE_PORT=8000"
+  "MT5_LOGIN="
+  "MT5_PASSWORD="
+) | Set-Content .env
+```
+
+Generate a private Bearer token without printing it:
+
+```powershell
+$bytes=New-Object byte[] 48; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes); $env:BRIDGE_TOKEN=[Convert]::ToBase64String($bytes); Add-Content .env ("BRIDGE_TOKEN=" + $env:BRIDGE_TOKEN); Remove-Variable bytes
+```
+
+Empty MT5 login/password values make the bridge use the session already open in the desktop terminal. The bridge does not send orders.
+
+## Verify the local bridge
+
+Without a token, `/health` must return `401`:
+
+```powershell
+try { (Invoke-WebRequest http://127.0.0.1:8000/health -ErrorAction Stop).StatusCode } catch { [int]$_.Exception.Response.StatusCode }
+```
+
+Load the token privately and test authenticated health:
+
+```powershell
+$env:BRIDGE_TOKEN=(Get-Content .env | Where-Object { $_ -match "^BRIDGE_TOKEN=" } | Select-Object -First 1).Substring(13)
+$headers=@{Authorization="Bearer $env:BRIDGE_TOKEN"}
+(Invoke-WebRequest http://127.0.0.1:8000/health -Headers $headers).StatusCode
+```
+
+The authenticated response must be `200`. Then inspect sanitized telemetry:
+
+```powershell
+$data=Invoke-RestMethod http://127.0.0.1:8000/telemetry -Headers $headers
+$data.status
+$data.account
+$data.positions | Select-Object symbol,magic,type,volume,profit | Format-Table
+```
+
+Only after a fresh authenticated bridge response should the dashboard display `MT5 LIVE`. Otherwise it must honestly show `MT5 OFFLINE`, `RECONECTANDO`, or `SIMULACIÓN`.
+
+## Public web connection
+
+A public dashboard needs a public deployment of the Next.js server. Separately, the Windows bridge needs a secure HTTPS tunnel. Do not expose MT5 itself or router ports.
+
+Install Cloudflare Tunnel:
+
+```powershell
+winget install --id Cloudflare.cloudflared -e --accept-source-agreements --accept-package-agreements
+```
+
+Run the temporary tunnel while the bridge is running:
+
+```powershell
+cloudflared tunnel --url http://127.0.0.1:8000
+```
+
+Copy only the HTTPS hostname printed by Cloudflared, such as `https://random-name.trycloudflare.com`. Configure these values privately in the server environment of the public Quantora Orbit deployment:
 
 ```text
 DATA_SOURCE=bridge
-MT5_BRIDGE_HTTP_URL=https://your-laptop-bridge.example.com
-BRIDGE_TOKEN=use-the-same-long-random-token-on-both-sides
-MT5_LOGIN=your_login
-MT5_PASSWORD=your_password
-MT5_SERVER=ICMarketsEU-MT5-5
-INITIAL_BALANCE=1350
+MT5_BRIDGE_HTTP_URL=https://random-name.trycloudflare.com
+BRIDGE_TOKEN=<same private token as the Windows bridge>
 ```
 
-The adapter exposes `/telemetry`; Orbit polls it server-side and converts account, agent positions, and MT5 status into the normalized four-bot WebSocket contract. If the adapter is unavailable, Orbit shows `MT5 OFFLINE` and does not label mock values as live. When `BRIDGE_TOKEN` (or the compatibility name `MT5_BRIDGE_TOKEN`) is set, both `/health` and `/telemetry` require `Authorization: Bearer <token>`.
+Restart the public dashboard. Open its root `/` URL, never `/EA-MT5/`. Keep the bridge and tunnel windows open. A temporary tunnel URL changes after restart; use a named tunnel for a durable public URL.
 
-For a laptop connection, keep MT5 and the FastAPI bridge running on the same Windows machine, then expose only port `8000` through a secure tunnel such as Cloudflare Tunnel. Set the tunnel's upstream service to `http://127.0.0.1:8000`; do not expose the MT5 terminal or open router ports. The MT5 terminal and Python adapter must run on a machine that can access the broker terminal. A cloud browser workspace cannot create a desktop MT5 session by itself.
-
-## Use a normalized WebSocket bridge
-
-For a separate private bridge, set:
-
-```text
-DATA_SOURCE=bridge
-MT5_BRIDGE_WS_URL=wss://your-private-bridge.example/ws
-MT5_BRIDGE_TOKEN=replace-with-a-long-random-token
-WS_ALLOWED_ORIGIN=https://your-dashboard.example
-```
-
-The bridge must send four-bot messages shaped like:
-
-```json
-{
-  "type": "telemetry",
-  "balance": 1522.45,
-  "initialBalance": 1350,
-  "currency": "EUR",
-  "timestamp": "2026-09-03T08:00:00.000Z",
-  "bots": [
-    {"id":"bot-1","name":"EA One","pnl":22.4,"exposurePct":18,"side":"long","updatedAt":"2026-09-03T08:00:00.000Z"},
-    {"id":"bot-2","name":"EA Two","pnl":-8.2,"exposurePct":24,"side":"short","updatedAt":"2026-09-03T08:00:00.000Z"},
-    {"id":"bot-3","name":"EA Three","pnl":0,"exposurePct":0,"side":"flat","updatedAt":"2026-09-03T08:00:00.000Z"},
-    {"id":"bot-4","name":"EA Four","pnl":31.7,"exposurePct":16,"side":"long","updatedAt":"2026-09-03T08:00:00.000Z"}
-  ]
-}
-```
-
-Orbit validates every incoming bridge message with Zod and reconnects with exponential backoff. Never prefix secrets with `NEXT_PUBLIC_`.
-
-## Production
+## Production configuration
 
 ```bash
 bun install --frozen-lockfile
 bun run typecheck
+bun run lint
 bun run build
 bun run start
 ```
 
-The custom server binds to `0.0.0.0` and reads the platform-provided `PORT`. Docker and Docker Compose definitions are included for a long-running WebSocket-capable deployment. A reverse proxy must support WebSocket upgrades and HTTPS.
+The managed hosting configuration uses `bun install` and `bun run build`. The custom server reads the platform `PORT` and supports WebSocket upgrades.
 
-## Security
+## Legacy material
 
-- Keep `.env`, `.env.local`, and bridge tokens out of Git.
-- Store MT5 login/password and bridge tokens in the platform environment settings.
-- Rotate credentials that have been exposed in chat, screenshots, logs, or Git history.
-- Use `https://`, a long random bridge token, an origin allowlist, and network allowlisting in production.
-- This app is read-only: the included adapter does not open or close trades.
+The former Vite/WAWA/Autonomous Business Lab files are preserved under `legacy/autonomous-business-lab/` for traceability only. They are not active, are not referenced by the root package scripts, and must not be started. Historical WAWA contract documents remain as documentation records, not runtime entrypoints.
+
+## Security and read-only boundary
+
+- Keep `.env`, `.env.local`, bridge tokens and MT5 credentials out of Git.
+- Never use `NEXT_PUBLIC_` for secrets.
+- The bridge reads account, terminal, positions, ticks and rates only.
+- No order creation, modification, closure or cancellation endpoint exists.
+- The browser receives normalized telemetry, never MT5 credentials or the bridge token.
+- Rotate any credential previously exposed in chat, screenshots or logs.
 
 ## Files
 
-- `app/` — Next.js App Router page and global styles.
-- `components/` — WebSocket provider, HUD, shaders, and Three.js scene.
-- `server.ts` — persistent Next.js + WebSocket server and bridge adapters.
-- `server/mock.ts` — deterministic local telemetry source.
-- `lib/schema.ts` — shared Zod validation contract.
-- `api/` and `mt5_bridge/` — existing read-only Python MT5 adapter.
-- `start_mision_control.py` and `start_mision_control.bat` — Windows bridge launchers.
-- `.env.example` — archive template; `env.example.txt` also contains the workspace-safe configuration reference.
+- `app/`, `components/`, `lib/`, `server.ts` — active Quantora Orbit application.
+- `api/`, `mt5_bridge/` — isolated read-only Python MT5 bridge.
+- `start_mision_control.bat` — bridge only.
+- `START_ORBIT.bat` — web only.
+- `START_ALL.bat` — bridge plus web.
+- `STOP_ALL.bat` — launcher cleanup.
+- `WINDOWS_QUICK_START.md` — short Windows guide.
+- `legacy/autonomous-business-lab/` — archived former app.
