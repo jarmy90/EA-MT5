@@ -58,6 +58,21 @@ $bytes=New-Object byte[] 48; [Security.Cryptography.RandomNumberGenerator]::Crea
 
 The empty MT5 login and password make the bridge use the session already open in the desktop terminal.
 
+Before expecting a bot to become active, fill these private values in `.env` using the real EA names and Magic Numbers read from MT5. Do not guess them:
+
+```text
+BOT_1_NAME=
+BOT_1_MAGIC=
+BOT_2_NAME=
+BOT_2_MAGIC=
+BOT_3_NAME=
+BOT_3_MAGIC=
+BOT_4_NAME=
+BOT_4_MAGIC=
+```
+
+Optional symbol fields are `BOT_1_SYMBOL` through `BOT_4_SYMBOL`. Blank Magic Numbers match no positions, so the dashboard correctly shows `SIN POSICIÓN` instead of inventing data.
+
 ## Check the bridge
 
 After `START_ALL.bat` is running, test without a token. It must return `401`:
@@ -83,7 +98,9 @@ $data.account
 $data.positions | Select-Object symbol,magic,type,volume,profit | Format-Table
 ```
 
-`connected : True` means the bridge has a fresh connection to the open MT5 terminal. The dashboard must show `MT5 LIVE` only after this real authenticated telemetry path is working. Otherwise it honestly shows `MT5 OFFLINE`, `RECONECTANDO`, or `SIMULACIÓN`.
+`connected : True` means the bridge has a fresh connection to the open MT5 terminal. The dashboard must show `MT5 LIVE` only after this real authenticated telemetry path is working. Otherwise it honestly shows `MT5 OFFLINE`, `STALE DATA`, `BRIDGE DISCONNECTED`, or `DEMO DATA · SIMULACIÓN`.
+
+Every position is assigned exclusively by its Magic Number. PnL is `profit + swap + commission`; the bridge computes EMA-smoothed PnL velocity and market velocity from real ticks. No orders are sent.
 
 ## Public web access
 

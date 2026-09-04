@@ -82,6 +82,21 @@ $bytes=New-Object byte[] 48; [Security.Cryptography.RandomNumberGenerator]::Crea
 
 Empty MT5 login/password values make the bridge use the session already open in the desktop terminal. The bridge does not send orders.
 
+Configure the four private EA identities from the actual MT5 Magic Numbers; there are no hard-coded defaults:
+
+```text
+BOT_1_NAME=EA name from MT5
+BOT_1_MAGIC=real magic number
+BOT_2_NAME=EA name from MT5
+BOT_2_MAGIC=real magic number
+BOT_3_NAME=EA name from MT5
+BOT_3_MAGIC=real magic number
+BOT_4_NAME=EA name from MT5
+BOT_4_MAGIC=real magic number
+```
+
+Optional `BOT_1_SYMBOL` through `BOT_4_SYMBOL` values improve display only. Until a Magic Number is supplied, that bot remains flat and no position is attributed to it.
+
 ## Verify the local bridge
 
 Without a token, `/health` must return `401`:
@@ -98,7 +113,7 @@ $headers=@{Authorization="Bearer $env:BRIDGE_TOKEN"}
 (Invoke-WebRequest http://127.0.0.1:8000/health -Headers $headers).StatusCode
 ```
 
-The authenticated response must be `200`. Then inspect sanitized telemetry:
+The authenticated response must be `200`. Then inspect sanitized telemetry. The four `BOT_*_MAGIC` values are the only position attribution keys; do not copy guessed numbers into them:
 
 ```powershell
 $data=Invoke-RestMethod http://127.0.0.1:8000/telemetry -Headers $headers

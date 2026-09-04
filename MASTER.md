@@ -1,6 +1,6 @@
 # Quantora Orbit Master Record
 
-**Updated:** 2026-09-04T08:17:15Z
+**Updated:** 2026-09-04T10:24:00Z
 **Project:** Quantora Orbit (`jarmy90/EA-MT5`)
 **Workspace root:** `/home/daytona/codebase`
 **Branch:** `main`
@@ -117,3 +117,18 @@ The deployment configuration is valid with install command `bun install` and bui
 - The bridge remains intentionally read-only.
 - Production deployment URL: none yet; hosting check is deployable, but first deployment requires the hosting Deploy control.
 - Delivery ZIP: `mt5-living-bots-dashboard.zip.txt`, generated from the final tracked tree after the record update and validated with `unzip -t`.
+
+
+## Real telemetry update — 2026-09-04
+
+The dashboard contract now carries account balance/equity/floating PnL, fixed starting balance 1350, total return, explicit source and freshness state. In bridge mode, every bot is configured privately by `BOT_1_NAME`/`BOT_1_MAGIC` through `BOT_4_NAME`/`BOT_4_MAGIC`; missing Magic Numbers remain unmatched and produce flat bots rather than invented attribution. `AGENT_MAP` remains a private compatibility override.
+
+`api/main.py` reads the already-open MT5 terminal session and calculates per-Magic Number PnL as `profit + swap + commission`, position state, volume, exposure, price averages, and real tick/PnL velocities through `mt5_bridge/telemetry.py`. The tracker smooths market velocity using EMA and keeps market activity separate from signed PnL velocity. Bridge failures produce disconnected/flat zeroed data; server.ts never falls back silently to mock.
+
+The UI now marks mock frames as `DEMO DATA · SIMULACIÓN`, shows connected/stale/disconnected upstream state, and drives sphere geometry/motion/particles from the validated telemetry fields. Sphere icosahedron detail is 5.
+
+Verification for this update: `bun install --frozen-lockfile`, `bun run typecheck`, `bun run lint`, `bun run test` (4 tests), `bun run build`, and Python syntax checks all pass. The cloud environment cannot perform a real Windows MT5 handshake; that remains a laptop-only verification.
+
+### Managed preview fix (2026-09-04T10:23Z)
+
+After the telemetry update, the managed preview returned HTTP `500` on `/` with Next.js devtools errors (`Could not find the module ... next-devtools/userspace/app/segment-explorer-node.js in the React Client Manifest`). Root cause: Next.js 15.5's development-only cross-origin handling on the Freebuff proxy origin, not the telemetry code. Fix: `next.config.ts` now sets `allowedDevOrigins: ["*.daytonaproxy01.net"]` (documented Next.js 15 config) and `devIndicators: false`. After restart the managed preview is ready on port `3000`; the local root returns HTTP `200` with the `QUANTORA` marker; logs show only `GET / 200` responses and no segment-explorer or manifest errors.

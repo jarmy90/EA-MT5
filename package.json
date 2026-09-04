@@ -8,6 +8,7 @@
     "start": "NODE_ENV=production tsx server.ts",
     "lint": "eslint app components lib server.ts server eslint.config.mjs",
     "typecheck": "tsc --noEmit",
+    "test": "python3 -m unittest discover -s tests -p 'test_*.py' -v",
     "start:orbit": "tsx server.ts"
   },
   "dependencies": {

@@ -1,0 +1,63 @@
+QUANTORA ORBIT REAL TELEMETRY UPDATE REPORT
+Date (UTC): 2026-09-04T10:24:00Z
+Repository: jarmy90/EA-MT5
+Branch: main
+
+SCOPE
+Removed invented bridge attribution and wired the validated telemetry path for real MT5 data: MT5 desktop -> read-only FastAPI bridge -> server.ts -> browser WebSocket -> four spheres.
+
+IMPLEMENTATION
+- api/main.py now reads the existing MT5 desktop session first when MT5_LOGIN and MT5_PASSWORD are empty.
+- Four private identities use BOT_1_NAME/BOT_1_MAGIC through BOT_4_NAME/BOT_4_MAGIC. Missing Magic Numbers match nothing; no Magic Number defaults are included.
+- AGENT_MAP remains a private compatibility override.
+- mt5_bridge/telemetry.py groups positions exclusively by Magic Number, aggregates profit + swap + commission, handles flat/long/short/mixed, and computes EMA-smoothed market and signed PnL velocities.
+- Bridge mode never falls back to mock data.
+- lib/schema.ts validates account, bot, velocity, source, and connection-state fields with Zod.
+- server.ts emits explicit connected/stale/disconnected states and zeroes stale bot values instead of displaying old live PnL.
+- HUD shows DEMO DATA · SIMULACIÓN only for mock source and exposes the requested selected-bot metrics.
+- Sphere behavior separates market activity from PnL emotion; flat spheres are small/quiet, positive spheres rise/emit upward particles, negative spheres fall/deform/emit downward particles.
+- Icosahedron detail is 5, not 64.
+- START_ORBIT.bat reports success only after port 3000 is listening.
+- next.config.ts sets allowedDevOrigins for the managed preview proxy and disables devIndicators to eliminate the Next.js devtools manifest error that caused an HTTP 500 on /.
+- Added tests/test_telemetry.py and the bun test script.
+- Updated README.md, WINDOWS_QUICK_START.md, and MASTER.md.
+
+FILES MODIFIED
+api/main.py
+app/globals.css
+components/HUD.tsx
+components/SphereBot.tsx
+env.example.txt
+lib/schema.ts
+next.config.ts
+package.json
+server.ts
+server/mock.ts
+START_ORBIT.bat
+MASTER.md
+WINDOWS_QUICK_START.md
+
+FILES ADDED
+mt5_bridge/telemetry.py
+tests/test_telemetry.py
+
+VERIFICATION
+- bun install --frozen-lockfile: PASS; no package changes.
+- bun run typecheck: PASS.
+- bun run lint: PASS.
+- bun run test: PASS; 4 tests passed.
+- bun run build: PASS; Next.js production build completed.
+- python3 -m py_compile api/main.py mt5_bridge/telemetry.py start_mision_control.py: PASS.
+- Read-only operation scan: PASS; no order-send or trade-mutation calls in api/ or mt5_bridge/.
+- NEXT_PUBLIC secret scan: PASS; no secret is exposed through a NEXT_PUBLIC variable.
+- Math.random scan: PASS; no random telemetry in bridge/runtime.
+- Real Windows MT5 handshake: NOT RUN in Linux cloud; must be verified on the Windows laptop with MT5 open.
+- Managed preview after devtools config fix: restart PASS; ready on port 3000.
+- Local root after restart: HTTP 200, contains QUANTORA marker.
+- Preview logs after restart: only GET / 200 responses; no segment-explorer or React Client Manifest errors.
+
+SECURITY
+No MT5 login, password, bridge token, Magic Number, or other real secret is included in this report. The browser receives normalized telemetry only. The bridge remains read-only and exposes no order execution endpoint.
+
+LIMITATION
+The repository environment blocks creation of dot-prefixed environment files through the file tool. The tracked env.example.txt is the secret-free template; create the private .env locally on Windows and never commit it. A real MT5 LIVE state cannot be claimed until authenticated fresh /health and /telemetry responses are observed on the laptop.

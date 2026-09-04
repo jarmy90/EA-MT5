@@ -5,133 +5,176 @@ import { telemetrySchema, type Bot, type Telemetry } from "./lib/schema";
 import { mockTelemetry } from "./server/mock";
 
 type RawPosition = {
-  ticket?: string | number;
   symbol?: string;
   type?: string | number;
   volume?: number;
   profit?: number;
   swap?: number;
   commission?: number;
-  time?: number;
+  price_open?: number;
+  price_current?: number;
 };
 
-type RawAgent = {
-  positions?: RawPosition[];
-  exposurePct?: number;
-  exposure_pct?: number;
-};
-
+type RawBot = Partial<Bot> & { updatedAt?: string | number };
 type RawTelemetry = {
-  status?: { connected?: boolean; last_error?: string; timestamp?: string };
-  account?: { balance?: number; equity?: number; profit?: number; currency?: string };
+  status?: { connected?: boolean; timestamp?: string | number; last_error?: string | null };
+  account?: { balance?: number; equity?: number; currency?: string } | null;
+  balance?: number;
+  equity?: number;
+  floatingPnl?: number;
+  startingBalance?: number;
+  totalReturn?: number;
+  totalReturnPct?: number;
+  bots?: RawBot[];
   positions?: RawPosition[];
-  agents?: Record<string, RawAgent>;
-  ticks?: Record<string, { time?: number; time_msc?: number }>;
+  timestamp?: string | number;
 };
 
-const definitions = [
-  { id: "bot-1", name: "NQ-ALPHA", symbol: "USTEC" },
-  { id: "bot-2", name: "NQ-SIGMA", symbol: "USTEC" },
-  { id: "bot-3", name: "XAU-PRIME", symbol: "XAUUSD" },
-  { id: "bot-4", name: "XAU-FLASH", symbol: "XAUUSD" },
-] as const;
+type BotIdentity = { id: string; name: string };
+
+const botIdentities: BotIdentity[] = [1, 2, 3, 4].map((index) => ({
+  id: `bot-${index}`,
+  name: process.env[`BOT_${index}_NAME`]?.trim() ?? "",
+}));
 
 const dev = process.env.NODE_ENV !== "production";
 const port = Number(process.env.PORT ?? 3000);
 const host = process.env.HOST ?? "0.0.0.0";
-const initialBalance = positiveNumber(process.env.INITIAL_BALANCE, 1350);
+const startingBalance = 1350;
+const staleAfterMs = 5000;
+const disconnectedAfterMs = 15000;
 const app = next({ dev });
-
-function positiveNumber(value: string | undefined, fallback: number): number {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
 
 function numberValue(value: unknown, fallback = 0): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-function symbolMatches(value: string | undefined, expected: string): boolean {
-  const symbol = (value ?? "").toUpperCase();
-  return symbol === expected || (expected === "USTEC" && ["NAS100", "NQ100", "US100", "NDX"].some((alias) => symbol.includes(alias)));
+function isoTimestamp(value: unknown, fallback = new Date().toISOString()): string {
+  if (typeof value === "string") {
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? new Date(parsed).toISOString() : fallback;
+  }
+  const numeric = numberValue(value, 0);
+  if (numeric > 0) return new Date(numeric < 10_000_000_000 ? numeric * 1000 : numeric).toISOString();
+  return fallback;
 }
 
-function positionPnl(position: RawPosition): number {
-  return numberValue(position.profit) + numberValue(position.swap) + numberValue(position.commission);
+function emptyBot(identity: BotIdentity, now: string): Bot {
+  return {
+    id: identity.id,
+    name: identity.name || `Bot ${identity.id.replace("bot-", "")}`,
+    active: false,
+    state: "flat",
+    symbol: null,
+    pnl: 0,
+    profit: 0,
+    swap: 0,
+    commission: 0,
+    volume: 0,
+    openPositions: 0,
+    exposurePct: 0,
+    balanceUsagePct: 0,
+    pnlVelocity: 0,
+    marketVelocity: 0,
+    priceAverage: null,
+    priceCurrent: null,
+    updatedAt: now,
+  };
 }
 
-function sideFor(positions: RawPosition[]): Bot["side"] {
-  const type = String(positions[0]?.type ?? "").toLowerCase();
-  if (type === "0" || type === "buy") return "long";
-  if (type === "1" || type === "sell") return "short";
-  return "flat";
-}
-
-function fallbackPositions(raw: RawTelemetry, definitionIndex: number): RawPosition[] {
-  const definition = definitions[definitionIndex];
-  const group = definitions.filter((item) => item.symbol === definition.symbol);
-  const groupIndex = group.findIndex((item) => item.id === definition.id);
-  const positions = (raw.positions ?? []).filter((position) => symbolMatches(position.symbol, definition.symbol));
-  return positions.filter((_, positionIndex) => positionIndex % group.length === groupIndex);
+function normalizeBot(raw: RawBot | undefined, identity: BotIdentity, now: string): Bot {
+  const result = telemetrySchema.shape.bots.element.safeParse({
+    ...emptyBot(identity, now),
+    ...raw,
+    id: identity.id,
+    name: identity.name || (typeof raw?.name === "string" && raw.name.trim() ? raw.name : `Bot ${identity.id.replace("bot-", "")}`),
+    updatedAt: isoTimestamp(raw?.updatedAt ?? now, now),
+  });
+  return result.success ? result.data : emptyBot(identity, now);
 }
 
 function normalizeHttpTelemetry(raw: RawTelemetry): Telemetry {
   const now = new Date().toISOString();
-  const connected = raw.status?.connected === true && numberValue(raw.account?.balance) > 0;
-  const bots = definitions.map((definition, index) => {
-    const agent = raw.agents?.[definition.name];
-    const positions = Array.isArray(agent?.positions) ? agent.positions : fallbackPositions(raw, index);
-    const pnl = positions.reduce((total, position) => total + positionPnl(position), 0);
-    const exposure = numberValue(agent?.exposurePct ?? agent?.exposure_pct);
-    return {
-      id: definition.id,
-      name: definition.name,
-      pnl: Number(pnl.toFixed(2)),
-      exposurePct: Math.max(0, Math.min(100, exposure)),
-      side: sideFor(positions),
-      updatedAt: raw.status?.timestamp ?? now,
-    } satisfies Bot;
-  });
+  const accountBalance = numberValue(raw.account?.balance ?? raw.balance);
+  const balance = numberValue(raw.balance ?? raw.account?.balance);
+  const equity = numberValue(raw.equity ?? raw.account?.equity, balance);
+  const floatingPnl = numberValue(raw.floatingPnl, equity - balance);
+  const timestamp = isoTimestamp(raw.timestamp ?? raw.status?.timestamp, now);
+  const sourceBots = Array.isArray(raw.bots) ? raw.bots : [];
+  const bots = botIdentities.map((identity, index) => normalizeBot(sourceBots[index], identity, timestamp));
+  const connected = raw.status?.connected === true && (balance > 0 || accountBalance > 0);
+  const actualBalance = balance || accountBalance;
+  const totalReturn = numberValue(raw.totalReturn, actualBalance - startingBalance);
+  const totalReturnPct = numberValue(raw.totalReturnPct, startingBalance ? totalReturn / startingBalance * 100 : 0);
 
   return telemetrySchema.parse({
     type: "telemetry",
-    balance: connected ? numberValue(raw.account?.balance, initialBalance) : initialBalance,
-    initialBalance,
+    balance: actualBalance,
+    equity,
+    floatingPnl,
+    startingBalance,
+    totalReturn,
+    totalReturnPct,
     currency: raw.account?.currency ?? "EUR",
-    timestamp: raw.status?.timestamp ?? now,
+    timestamp,
     source: "bridge",
     bridgeConnected: connected,
+    connectionState: connected ? "connected" : "disconnected",
     bots,
   });
 }
 
 function normalizeWebSocketTelemetry(raw: unknown): Telemetry | null {
   if (!raw || typeof raw !== "object") return null;
-  const candidate = { ...(raw as Record<string, unknown>), source: "bridge", bridgeConnected: true };
-  const result = telemetrySchema.safeParse(candidate);
+  const candidate = raw as Record<string, unknown>;
+  const result = telemetrySchema.safeParse({ ...candidate, source: "bridge" });
   return result.success ? result.data : null;
 }
 
-function offlineTelemetry(): Telemetry {
+function withConnectionState(data: Telemetry, state: Telemetry["connectionState"]): Telemetry {
+  return telemetrySchema.parse({ ...data, bridgeConnected: state === "connected", connectionState: state });
+}
+
+function offlineTelemetry(state: "stale" | "disconnected", last: Telemetry | null): Telemetry {
   const now = new Date().toISOString();
-  return {
+  if (last) {
+    const safeBots = last.bots.map((bot) => ({
+      ...bot,
+      active: false,
+      state: "flat" as const,
+      symbol: null,
+      pnl: 0,
+      profit: 0,
+      swap: 0,
+      commission: 0,
+      volume: 0,
+      openPositions: 0,
+      exposurePct: 0,
+      balanceUsagePct: 0,
+      pnlVelocity: 0,
+      marketVelocity: 0,
+      priceAverage: null,
+      priceCurrent: null,
+      updatedAt: now,
+    }));
+    return withConnectionState({ ...last, balance: 0, equity: 0, floatingPnl: 0, totalReturn: 0, totalReturnPct: 0, timestamp: now, bots: safeBots }, state);
+  }
+  return telemetrySchema.parse({
     type: "telemetry",
-    balance: initialBalance,
-    initialBalance,
+    balance: 0,
+    equity: 0,
+    floatingPnl: 0,
+    startingBalance,
+    totalReturn: 0,
+    totalReturnPct: 0,
     currency: "EUR",
     timestamp: now,
     source: "bridge",
     bridgeConnected: false,
-    bots: definitions.map((definition) => ({
-      id: definition.id,
-      name: definition.name,
-      pnl: 0,
-      exposurePct: 0,
-      side: "flat" as const,
-      updatedAt: now,
-    })),
-  };
+    connectionState: state,
+    bots: botIdentities.map((identity) => emptyBot(identity, now)),
+  });
 }
 
 async function main() {
@@ -148,6 +191,8 @@ async function main() {
   let bridgeRetry = 0;
   let bridgeTimer: ReturnType<typeof setTimeout> | undefined;
   let httpTimer: ReturnType<typeof setTimeout> | undefined;
+  let lastBridgeAt = 0;
+  let lastBridgeData: Telemetry | null = null;
 
   const broadcast = (data: Telemetry) => {
     latest = telemetrySchema.parse(data);
@@ -155,6 +200,11 @@ async function main() {
     for (const client of wss.clients) {
       if (client.readyState === WebSocket.OPEN) client.send(body);
     }
+  };
+
+  const broadcastBridgeStatus = () => {
+    const age = lastBridgeAt ? Date.now() - lastBridgeAt : disconnectedAfterMs;
+    broadcast(offlineTelemetry(age >= disconnectedAfterMs ? "disconnected" : "stale", lastBridgeData));
   };
 
   const scheduleBridgeReconnect = (connect: () => void) => {
@@ -175,14 +225,19 @@ async function main() {
     bridgeSocket.on("message", (raw) => {
       try {
         const data = normalizeWebSocketTelemetry(JSON.parse(raw.toString()));
-        if (data) broadcast(data);
-        else console.error("Rejected bridge payload: schema mismatch");
+        if (data) {
+          lastBridgeAt = Date.now();
+          lastBridgeData = data;
+          broadcast(data);
+        } else {
+          console.error("Rejected bridge payload: schema mismatch");
+        }
       } catch (error) {
         console.error("Rejected bridge payload:", error instanceof Error ? error.message : "invalid JSON");
       }
     });
     bridgeSocket.on("close", () => {
-      broadcast(offlineTelemetry());
+      broadcastBridgeStatus();
       scheduleBridgeReconnect(connectWebSocketBridge);
     });
     bridgeSocket.on("error", (error) => console.error("Bridge error:", error.message));
@@ -200,9 +255,12 @@ async function main() {
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const raw = await response.json() as RawTelemetry;
-      broadcast(normalizeHttpTelemetry(raw));
+      const data = normalizeHttpTelemetry(raw);
+      lastBridgeAt = Date.now();
+      lastBridgeData = data;
+      broadcast(data);
     } catch (error) {
-      broadcast(offlineTelemetry());
+      broadcastBridgeStatus();
       console.error("HTTP bridge error:", error instanceof Error ? error.message : error);
     } finally {
       httpTimer = setTimeout(() => void pollHttpBridge(), Number(process.env.MT5_BRIDGE_POLL_INTERVAL ?? 1000));
@@ -226,10 +284,10 @@ async function main() {
 
   const source = process.env.DATA_SOURCE ?? "mock";
   if (source === "bridge" && process.env.MT5_BRIDGE_WS_URL) {
-    latest = offlineTelemetry();
+    latest = offlineTelemetry("disconnected", null);
     connectWebSocketBridge();
   } else if (source === "bridge" && process.env.MT5_BRIDGE_HTTP_URL) {
-    latest = offlineTelemetry();
+    latest = offlineTelemetry("disconnected", null);
     void pollHttpBridge();
   } else if (source === "bridge") {
     throw new Error("Bridge mode requires MT5_BRIDGE_WS_URL or MT5_BRIDGE_HTTP_URL");
@@ -238,8 +296,12 @@ async function main() {
   }
 
   server.listen(port, host, () => console.log(`Quantora Orbit on http://${host}:${port}`));
+  const freshnessTimer = setInterval(() => {
+    if (source === "bridge" && lastBridgeAt > 0 && Date.now() - lastBridgeAt >= staleAfterMs) broadcastBridgeStatus();
+  }, 1000);
   void bridgeTimer;
   void httpTimer;
+  void freshnessTimer;
 }
 
 void main().catch((error) => {
