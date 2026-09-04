@@ -2,24 +2,19 @@
 setlocal
 cd /d "%~dp0"
 
-title Mision Control - AI Command Station
+title Quantora Orbit - MT5 Read-Only Bridge
 color 0B
 
 echo.
 echo ================================================================
-echo              MISION CONTROL - AI COMMAND STATION
+echo              QUANTORA ORBIT - MT5 BRIDGE
 echo ================================================================
 echo.
-echo  [1/3] Instalando dependencias...
-pip install -q -r requirements.txt 2>nul
-echo  [OK] Dependencias listas.
-echo.
-echo  [2/3] Arrancando API en http://127.0.0.1:8000 ...
-echo.
-echo  [3/3] Abre tu navegador en: http://127.0.0.1:8000
+echo  Starting the read-only MT5 bridge on http://127.0.0.1:8000 ...
+echo  Keep this window open while the cloud dashboard is connected.
 echo.
 echo ================================================================
-echo  Cierra esta ventana para detener la API.
+echo  Close this window or press Ctrl+C to stop the bridge.
 echo ================================================================
 echo.
 

@@ -1,28 +1,40 @@
 {
-  "name": "agentic-trading-station",
-  "private": true,
+  "name": "quantora-orbit",
   "version": "1.0.0",
-  "type": "module",
+  "private": true,
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
-    "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0",
+    "dev": "tsx server.ts",
+    "build": "next build",
+    "start": "NODE_ENV=production tsx server.ts",
+    "lint": "eslint app components lib server.ts server eslint.config.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@types/three": "^0.185.4",
-    "@vitejs/plugin-react": "latest",
-    "framer-motion": "latest",
-    "lucide-react": "latest",
-    "react": "latest",
-    "react-dom": "latest",
-    "recharts": "latest",
-    "three": "^0.185.1",
-    "typescript": "latest",
-    "vite": "latest"
+    "@react-three/drei": "^10.7.4",
+    "@react-three/fiber": "^9.3.0",
+    "@react-three/postprocessing": "^3.0.4",
+    "@react-three/rapier": "^2.2.0",
+    "gsap": "^3.13.0",
+    "next": "15.5.2",
+    "postprocessing": "^6.37.8",
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
+    "three": "^0.179.1",
+    "ws": "^8.18.3",
+    "zod": "^4.1.5"
   },
   "devDependencies": {
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.5"
+    "@types/node": "^22.18.0",
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.9",
+    "@types/three": "^0.179.0",
+    "@types/ws": "^8.18.1",
+    "eslint": "^9",
+    "eslint-config-next": "15.5.2",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2"
+  },
+  "engines": {
+    "node": ">=20.9"
   }
 }

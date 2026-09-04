@@ -1,4 +1,4 @@
-name: Deploy WAWA to GitHub Pages
+name: Validate Quantora Orbit
 
 on:
   push:
@@ -8,21 +8,17 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
+  group: quantora-orbit-validation
   cancel-in-progress: false
 
 jobs:
-  build:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -33,27 +29,3 @@ jobs:
         run: bun run typecheck
       - name: Build
         run: bun run build
-      - name: Validate production artifact
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -f dist/index.html
-          grep -q 'id="root"' dist/index.html
-          ! grep -q '/src/main.tsx' dist/index.html
-          find dist/assets -maxdepth 1 -type f -name '*.js' | grep -q .
-          find dist/assets -maxdepth 1 -type f -name '*.css' | grep -q .
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4

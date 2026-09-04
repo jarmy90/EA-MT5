@@ -1,0 +1,163 @@
+QUANTORA ORBIT DELIVERY REPORT
+Date (UTC): 2026-09-04T07:11:07Z
+
+A. Real project name
+Quantora Orbit / repository jarmy90/EA-MT5
+
+B. Exact workspace path
+/home/daytona/codebase
+
+C. Current branch
+main
+
+D. Real remote
+https://github.com/jarmy90/EA-MT5.git
+
+E. Last commit before delivery
+12b75a2 Add files via upload
+
+F. Included changes
+- Active Next.js 15 + React 19 + TypeScript application under app/, components/, lib/, server.ts, and server/.
+- Persistent Node server with browser WebSocket endpoint at /ws.
+- Deterministic mock telemetry remains the safe default.
+- Read-only Python FastAPI MT5 bridge under api/ and mt5_bridge/.
+- Optional bearer authentication for /health and /telemetry using BRIDGE_TOKEN, with MT5_BRIDGE_TOKEN compatibility support.
+- Cloud server forwards the bridge bearer token when polling MT5_BRIDGE_HTTP_URL.
+- Windows launcher corrected to start only the FastAPI bridge and to authenticate its readiness check.
+- Noninteractive ESLint 9 configuration compatible with Next.js 15.
+- Production Docker files, environment reference, README, MASTER.md, and this report.
+- Trade execution remains disabled and absent.
+
+G. Installation result
+PASS: bun install --frozen-lockfile.
+PASS: platform-independent Python bridge dependencies installed for testing.
+BLOCKED IN CLOUD: the official MetaTrader5 Python wheel is Windows-only and cannot be installed in this Linux workspace. Install requirements.txt on the Windows laptop.
+
+H. Typecheck result
+PASS: bun tsc -b --noEmit.
+
+I. Lint result
+PASS: bun run lint.
+
+J. Build result
+PASS: bun run build. Next.js production build completed successfully.
+
+K. Python syntax result
+PASS: python3 -m py_compile start_mision_control.py api/main.py mt5_bridge/service.py.
+
+L. /health result
+PASS in-process bridge test with a disposable test token: correct bearer token returned HTTP 200.
+PASS managed preview returned HTTP 200 for the dashboard.
+NOT RUN against real MT5: the cloud workspace has no Windows MT5 terminal.
+
+M. Bridge authentication result
+PASS: request without bearer token returned 401 when a token was configured.
+PASS: request with wrong bearer token returned 401.
+PASS: request with correct disposable bearer token returned 200 for /health and /telemetry.
+No real token value is stored in this report or repository.
+
+N. WebSocket/telemetry result
+PASS: managed preview /ws returned a schema-valid frame with source mock, 4 bots, and initial balance 1350.
+Real MT5 telemetry remains pending laptop and tunnel setup.
+
+O. Read-only confirmation
+PASS. The bridge only reads terminal/account/position/tick/rates data. No order_send, order_check, order_modify, order_close, trade request, order cancel, or position close/modify call was found in the bridge source.
+
+P. Real GitHub URL
+https://github.com/jarmy90/EA-MT5.git
+
+Q. Real deployed URL
+NONE. freebuff-deploy check reported deployable configuration, but freebuff-deploy status reported no deployments yet. The first production deployment must be started from the Freebuff Deploy button.
+
+R. Exact PowerShell clone command
+PS C:\Users\j> git clone https://github.com/jarmy90/EA-MT5.git
+
+S. ZIP delivered
+NO. GitHub remote is configured and reachable, so ZIP fallback was not used.
+
+T. Pending limitations
+- Real MT5, Python MetaTrader5 wheel, Windows terminal session, and Cloudflare Tunnel cannot be verified from this Linux cloud workspace.
+- The cloud dashboard remains in simulation mode until a reachable HTTPS bridge URL and matching server-side BRIDGE_TOKEN are configured.
+- Exact EA attribution requires account-specific magic numbers or comments in AGENT_MAP.
+- The bridge is intentionally read-only; no trading operation is available.
+- The tunnel URL must remain private and only expose the local FastAPI port 8000.
+
+ARCHITECTURE VERIFICATION
+MetaTrader 5 open on Windows
+  -> official Python MetaTrader5 package
+  -> local FastAPI read-only bridge at http://127.0.0.1:8000
+  -> Cloudflare Tunnel HTTPS hostname
+  -> private Quantora Orbit Node server polling MT5_BRIDGE_HTTP_URL
+  -> Quantora Orbit browser WebSocket /ws
+  -> dashboard HUD and four entities
+
+WINDOWS PROCEDURE
+Start at: PS C:\Users\j>
+
+1. Clone the repository.
+PS C:\Users\j> git clone https://github.com/jarmy90/EA-MT5.git
+
+2. Enter the folder.
+PS C:\Users\j> cd EA-MT5
+
+3. Check Python.
+PS C:\Users\j\EA-MT5> py --version
+
+4. Check Node.js.
+PS C:\Users\j\EA-MT5> node --version
+
+5. Create the virtual environment.
+PS C:\Users\j\EA-MT5> py -m venv .venv
+
+6. Activate the virtual environment.
+PS C:\Users\j\EA-MT5> .\.venv\Scripts\Activate.ps1
+
+7. Install Python dependencies.
+PS C:\Users\j\EA-MT5> python -m pip install -r requirements.txt
+
+8. Generate a bridge token without displaying it.
+PS C:\Users\j\EA-MT5> $env:BRIDGE_TOKEN = [Convert]::ToBase64String((1..48 | ForEach-Object { Get-Random -Maximum 256 }))
+
+9. Add local non-secret settings to .env. Do not paste the token into chat.
+PS C:\Users\j\EA-MT5> @'
+DATA_SOURCE=bridge
+MT5_SERVER=ICMarketsEU-MT5-5
+MT5_SYMBOLS=USTEC,XAUUSD
+BRIDGE_HOST=127.0.0.1
+BRIDGE_PORT=8000
+'@ | Set-Content .env
+
+10. Append the generated token to .env without printing it.
+PS C:\Users\j\EA-MT5> Add-Content .env ("BRIDGE_TOKEN=" + $env:BRIDGE_TOKEN)
+
+11. Keep MetaTrader 5 open and already connected to the account. Do not enter a password in the dashboard.
+
+12. Start the read-only bridge.
+PS C:\Users\j\EA-MT5> .\start_mision_control.bat
+
+13. In a second PowerShell window, test the local health endpoint without a token. It must return 401.
+PS C:\Users\j> Invoke-WebRequest http://127.0.0.1:8000/health -UseBasicParsing | Select-Object -ExpandProperty StatusCode
+
+14. Test with the token without printing the token.
+PS C:\Users\j> $headers = @{ Authorization = "Bearer $env:BRIDGE_TOKEN" }; Invoke-WebRequest http://127.0.0.1:8000/health -Headers $headers -UseBasicParsing | Select-Object -ExpandProperty StatusCode
+
+15. Install cloudflared.
+PS C:\Users\j> winget install --id Cloudflare.cloudflared -e
+
+16. Start a temporary HTTPS tunnel to the local bridge.
+PS C:\Users\j> cloudflared tunnel --url http://127.0.0.1:8000
+
+17. Copy only the HTTPS URL ending in trycloudflare.com printed by cloudflared. Do not copy /health or /telemetry.
+
+18. Configure the cloud dashboard privately in Freebuff Settings -> Environment. Set MT5_BRIDGE_HTTP_URL to the copied HTTPS URL and BRIDGE_TOKEN to the local token. Never put either value in Git, README, browser URL, or chat.
+
+19. Restart the dashboard preview/server after saving the environment values.
+
+20. Verify the dashboard changes from SIMULACIÓN to MT5 LIVE and displays real account/position values.
+
+21. Identify each EA using its magic number or comment. Set AGENT_MAP locally with the exact mapping; do not guess. Keep the adapter read-only.
+
+22. To stop the bridge, return to its window and press Ctrl+C. To stop the temporary tunnel, return to its window and press Ctrl+C.
+
+SECURITY NOTE
+The MT5 password supplied in the conversation is not used by this report or repository. Prefer the already-open MT5 terminal session. Because the password was shared in conversation, rotate it in MT5 before any real connection.

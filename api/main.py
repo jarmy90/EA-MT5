@@ -13,12 +13,13 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 import threading
 import time
 from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -42,6 +43,7 @@ except Exception as exc:  # pragma: no cover - depende del entorno local
 # Configuración (ver env.example.txt)
 # ---------------------------------------------------------------------------
 SYMBOLS = [s.strip() for s in os.getenv("MT5_SYMBOLS", "USTEC,XAUUSD").split(",") if s.strip()]
+BRIDGE_TOKEN = (os.getenv("BRIDGE_TOKEN") or os.getenv("MT5_BRIDGE_TOKEN") or "").strip()
 
 # Mapeo agente -> símbolo + magic numbers (coincide con las definiciones del frontend).
 _DEFAULT_AGENTS = [
@@ -204,8 +206,17 @@ app.add_middleware(
 )
 
 
+def _authorize(authorization: Optional[str]) -> None:
+    """Require the shared bearer token when the bridge is exposed outside the laptop."""
+    if BRIDGE_TOKEN and not authorization:
+        raise HTTPException(status_code=401, detail="Bridge authorization required")
+    if BRIDGE_TOKEN and not secrets.compare_digest(authorization or "", f"Bearer {BRIDGE_TOKEN}"):
+        raise HTTPException(status_code=401, detail="Invalid bridge authorization")
+
+
 @app.get("/health")
-def health() -> Dict[str, Any]:
+def health(authorization: Optional[str] = Header(default=None)) -> Dict[str, Any]:
+    _authorize(authorization)
     with _lock:
         connected = _snapshot["status"]["connected"]
         last_error = _snapshot["status"].get("last_error")
@@ -213,7 +224,8 @@ def health() -> Dict[str, Any]:
 
 
 @app.get("/telemetry")
-def telemetry() -> Dict[str, Any]:
+def telemetry(authorization: Optional[str] = Header(default=None)) -> Dict[str, Any]:
+    _authorize(authorization)
     with _lock:
         return dict(_snapshot)
 

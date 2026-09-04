@@ -1,109 +1,100 @@
-# WAWA // Agentic Trading Station
+# Quantora Orbit
 
-WAWA is a professional agentic trading operations station. The frontend is now a React + TypeScript + Vite dashboard with deterministic, explicitly labelled SIMULATION data; the existing optional Windows bridge exposes read-only MetaTrader 5 telemetry through FastAPI.
+Quantora Orbit is a cinematic real-time command center for four MetaTrader 5 Expert Advisors. The repository now runs the complete Next.js 15 + React 19 + TypeScript application from the supplied archive, with a persistent Node server and browser WebSocket endpoint.
 
-## Arranque por Remote Desktop
+## Current status
 
-1. Tener MetaTrader 5 abierto y con sesión iniciada.
-2. Hacer doble clic en `start_mision_control.bat`.
-3. El script instala dependencias solo si faltan, comprueba MT5, inicia la API y abre el navegador automáticamente.
-4. Si la API no responde, la interfaz muestra: `API no disponible. ¿Has ejecutado start_mision_control.bat?`
+- The archive was present at `quantora-orbit.zip` and verified as a valid 20-file package.
+- Its application files are installed at the repository root.
+- Mock telemetry is the safe default, so the web app can start without a terminal or account credentials.
+- The existing Python FastAPI read-only MT5 adapter remains available and can feed Orbit through `MT5_BRIDGE_HTTP_URL`.
+- MT5 credentials are server-side configuration only and are never sent to the browser.
+- The HTTP bridge supports an optional bearer token through `BRIDGE_TOKEN` (`MT5_BRIDGE_TOKEN` remains supported for compatibility).
 
-La API queda disponible en `http://127.0.0.1:8000`. La ventana de consola debe permanecer abierta mientras se usa el panel. El launcher también acepta `.env` opcional para una sesión que deba iniciar sesión por sí misma. El bridge intenta reconectar con MT5 cada 10 segundos si el terminal o la sesión dejan de responder.
-
-## API
-
-- `GET /status` — estado de terminal/sesión y último error
-- `GET /health` — comprobación de disponibilidad
-- `GET /account` — balance, equity, margen y beneficio
-- `GET /positions` — posiciones abiertas
-- `GET /telemetry` — paquete combinado de estado, cuenta, posiciones y ticks para el dashboard
-- `GET /tick/{symbol}` — último tick, por ejemplo `/tick/EURUSD`
-- `GET /rates/{symbol}?timeframe=M15&count=200` — histórico OHLCV (`M1`, `M5`, `M15`, `M30`, `H1`, `H4`, `D1`)
-
-La API es de solo lectura y no envía órdenes.
-
-## Visión y arquitectura
-
-The station represents an organization working from data intake through research, strategy, risk governance, delivery, and human approval. Every visible agent state, event, queue item, artifact, and decision is derived from one deterministic demo snapshot. No demo P&L, orders, MT5 status, or Freebuff status is presented as live.
-
-The frontend stack is React, TypeScript, Vite, Framer Motion, Lucide React, and inline SVG/CSS. The primary view is four independent EA stations with a shared portfolio manager. Live mode polls `/telemetry` without inventing values; if the handshake is absent, the UI remains OFFLINE/UNAVAILABLE and offers deterministic simulation only as an explicit opt-in. See `docs/ARCHITECTURE.md`, `docs/EVENT_CONTRACT.md`, `docs/REAL_INTEGRATIONS.md`, and `docs/WAWA_LIVE_DASHBOARD_CONTRACT.md`.
-
-## Estructura
-
-```text
-index.html                 Frontend Misión Control y modos Demo/Live
-api/main.py                Rutas FastAPI y servidor del frontend
-mt5_bridge/service.py      Adaptador oficial MetaTrader5 y reconexión
-requirements.txt           Dependencias Python
-start_mision_control.py    Launcher multiplataforma
-start_mision_control.bat   Launcher de doble clic para Windows
-env.example.txt            Referencia de configuración local sin credenciales
-```
-
-## Configuración local
-
-El launcher y el bridge cargan `.env` automáticamente si existe:
-
-```text
-MT5_LOGIN=tu_login
-MT5_PASSWORD=tu_password
-MT5_SERVER=ICMarketsEU-MT5-5
-```
-
-Sin `.env`, el bridge no inicia sesión por cuenta propia y confía en la sesión activa del terminal MetaTrader 5.
-
-`MT5_PATH` y `PORT` son opcionales. Para atribución exacta por EA, configura `AGENT_MAP` con magic numbers o tags; sin mapa, las posiciones se reparten round-robin entre agentes del mismo símbolo. Los estados visuales usan ticks frescos, posiciones y profit: el mercado cerrado produce `SLEEPING`, mientras que actividad y resultado producen `WORKING`, `ENERGIZED`, `STRESSED` o `ALERT`.
-
-Ejemplo de `AGENT_MAP`:
-
-```text
-AGENT_MAP=[{"id":"NQ-ALPHA","symbols":["USTEC"],"magics":[111001],"tags":[]},{"id":"NQ-SIGMA","symbols":["USTEC"],"magics":[111002],"tags":[]},{"id":"XAU-PRIME","symbols":["XAUUSD"],"magics":[222001],"tags":[]},{"id":"XAU-FLASH","symbols":["XAUUSD"],"magics":[222002],"tags":[]}]
-```
-
-`tools/list_magics.py` imprime los magic numbers y comentarios de las posiciones abiertas para completar ese mapa.
-
-`MT5_PATH` y `PORT` son opcionales. El paquete Python `MetaTrader5` se comunica con el terminal de escritorio instalado en el mismo Windows; usa `MT5_PATH` si está instalado en una ruta no estándar.
-
-## Auto-descubrimiento de Magic Numbers
-
-El sistema descubre automáticamente los magic numbers de tus EAs al arrancar:
-
-1. Lee los magic numbers de las posiciones abiertas reales.
-2. Los agrupa por grupo de símbolo (NQ para USTEC, XAU para XAUUSD).
-3. Asigna cada magic al siguiente agente libre de su grupo, en orden.
-4. Guarda el mapeo en `data/agent_map.auto.json` para que sea estable entre reinicios.
-
-Prioridad: `AGENT_MAP` manual en `.env` > `agent_map.auto.json` > round-robin por símbolo.
-
-Consulta el mapeo actual en `http://127.0.0.1:8000/agents/map`.
-
-## Fórmula de Floating P&L
-
-El beneficio flotante se calcula de forma unificada en header, tarjetas y log:
-
-```text
-floating_pnl = profit + swap + commission
-```
-
-El mismo número aparece en los tres sitios. Los valores vienen directamente de MT5 sin redondeos intermedios.
-
-## Desarrollo y despliegue
+## Run locally
 
 ```bash
 bun install
 bun run dev
-bun run typecheck
-bun run build
-bun run preview
 ```
 
-GitHub Pages se publica desde la raíz de `main` mediante `.github/workflows/deploy-pages.yml`. Vite usa `base: './'`, por lo que los assets funcionan bajo `/EA-MT5/`. La aplicación no se coloca dentro de `docs/`; esa carpeta contiene únicamente documentación.
+Open `http://localhost:3000`. The preview shows four animated entities, PnL-driven visual states, Cinema mode, optional Web Audio, and local Moments history. Mock data is explicitly labelled `SIMULACIÓN`.
 
-## Escenarios demo
+## Connect the existing MT5 adapter
 
-El selector permite reproducir `Normal Run`, `Risk Blocked`, `Build Failed` y `Human Approval`. Todos son deterministas y están marcados `SIMULATION`; no representan órdenes, P&L, conexión MT5 ni estado real.
+The repository already contains a read-only FastAPI adapter under `api/` and `mt5_bridge/`. Run that adapter on the same machine as the logged-in MT5 desktop terminal, then configure Orbit with:
 
-## Frontend
+```text
+DATA_SOURCE=bridge
+MT5_BRIDGE_HTTP_URL=https://your-laptop-bridge.example.com
+BRIDGE_TOKEN=use-the-same-long-random-token-on-both-sides
+MT5_LOGIN=your_login
+MT5_PASSWORD=your_password
+MT5_SERVER=ICMarketsEU-MT5-5
+INITIAL_BALANCE=1350
+```
 
-Live Mode es el modo predeterminado y consulta `/telemetry` cada segundo. Solo muestra datos reales cuando el backend confirma conexión; si falla, muestra `OFFLINE` y no sustituye valores por demo. La simulación se activa manualmente y usa el mismo componente de estación EA. Los estados visuales representan actividad, posición, beneficio, pérdida, bloqueo o desconexión.
+The adapter exposes `/telemetry`; Orbit polls it server-side and converts account, agent positions, and MT5 status into the normalized four-bot WebSocket contract. If the adapter is unavailable, Orbit shows `MT5 OFFLINE` and does not label mock values as live. When `BRIDGE_TOKEN` (or the compatibility name `MT5_BRIDGE_TOKEN`) is set, both `/health` and `/telemetry` require `Authorization: Bearer <token>`.
+
+For a laptop connection, keep MT5 and the FastAPI bridge running on the same Windows machine, then expose only port `8000` through a secure tunnel such as Cloudflare Tunnel. Set the tunnel's upstream service to `http://127.0.0.1:8000`; do not expose the MT5 terminal or open router ports. The MT5 terminal and Python adapter must run on a machine that can access the broker terminal. A cloud browser workspace cannot create a desktop MT5 session by itself.
+
+## Use a normalized WebSocket bridge
+
+For a separate private bridge, set:
+
+```text
+DATA_SOURCE=bridge
+MT5_BRIDGE_WS_URL=wss://your-private-bridge.example/ws
+MT5_BRIDGE_TOKEN=replace-with-a-long-random-token
+WS_ALLOWED_ORIGIN=https://your-dashboard.example
+```
+
+The bridge must send four-bot messages shaped like:
+
+```json
+{
+  "type": "telemetry",
+  "balance": 1522.45,
+  "initialBalance": 1350,
+  "currency": "EUR",
+  "timestamp": "2026-09-03T08:00:00.000Z",
+  "bots": [
+    {"id":"bot-1","name":"EA One","pnl":22.4,"exposurePct":18,"side":"long","updatedAt":"2026-09-03T08:00:00.000Z"},
+    {"id":"bot-2","name":"EA Two","pnl":-8.2,"exposurePct":24,"side":"short","updatedAt":"2026-09-03T08:00:00.000Z"},
+    {"id":"bot-3","name":"EA Three","pnl":0,"exposurePct":0,"side":"flat","updatedAt":"2026-09-03T08:00:00.000Z"},
+    {"id":"bot-4","name":"EA Four","pnl":31.7,"exposurePct":16,"side":"long","updatedAt":"2026-09-03T08:00:00.000Z"}
+  ]
+}
+```
+
+Orbit validates every incoming bridge message with Zod and reconnects with exponential backoff. Never prefix secrets with `NEXT_PUBLIC_`.
+
+## Production
+
+```bash
+bun install --frozen-lockfile
+bun run typecheck
+bun run build
+bun run start
+```
+
+The custom server binds to `0.0.0.0` and reads the platform-provided `PORT`. Docker and Docker Compose definitions are included for a long-running WebSocket-capable deployment. A reverse proxy must support WebSocket upgrades and HTTPS.
+
+## Security
+
+- Keep `.env`, `.env.local`, and bridge tokens out of Git.
+- Store MT5 login/password and bridge tokens in the platform environment settings.
+- Rotate credentials that have been exposed in chat, screenshots, logs, or Git history.
+- Use `https://`, a long random bridge token, an origin allowlist, and network allowlisting in production.
+- This app is read-only: the included adapter does not open or close trades.
+
+## Files
+
+- `app/` — Next.js App Router page and global styles.
+- `components/` — WebSocket provider, HUD, shaders, and Three.js scene.
+- `server.ts` — persistent Next.js + WebSocket server and bridge adapters.
+- `server/mock.ts` — deterministic local telemetry source.
+- `lib/schema.ts` — shared Zod validation contract.
+- `api/` and `mt5_bridge/` — existing read-only Python MT5 adapter.
+- `start_mision_control.py` and `start_mision_control.bat` — Windows bridge launchers.
+- `.env.example` — archive template; `env.example.txt` also contains the workspace-safe configuration reference.
