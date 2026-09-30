@@ -322,7 +322,12 @@ async function main() {
     latest = offlineTelemetry("disconnected", null);
     void pollHttpBridge();
   } else if (source === "bridge") {
-    throw new Error("Bridge mode requires MT5_BRIDGE_WS_URL or MT5_BRIDGE_HTTP_URL");
+    // Single-machine default: the read-only bridge runs on this same computer.
+    const bridgeHost = process.env.BRIDGE_HOST ?? "127.0.0.1";
+    const bridgePort = process.env.BRIDGE_PORT ?? "8000";
+    process.env.MT5_BRIDGE_HTTP_URL = `http://${bridgeHost}:${bridgePort}`;
+    latest = offlineTelemetry("disconnected", null);
+    void pollHttpBridge();
   } else {
     setInterval(() => broadcast(mockTelemetry(++mockTick)), 1000);
   }
