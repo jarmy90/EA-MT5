@@ -32,7 +32,45 @@ except Exception as exc:  # pragma: no cover - Windows-only dependency
 
 BRIDGE_TOKEN = (os.getenv("BRIDGE_TOKEN") or os.getenv("MT5_BRIDGE_TOKEN") or "").strip()
 POLL_INTERVAL = float(os.getenv("BRIDGE_POLL_INTERVAL", "1.0"))
-STARTING_BALANCE = 1350.0
+
+
+def _starting_balance() -> float:
+    """Bot starting capital; defaults to 1350 for backward compatibility."""
+    try:
+        value = float(os.getenv("STARTING_BALANCE", "1350"))
+    except ValueError:
+        return 1350.0
+    return value if value > 0 else 1350.0
+
+
+def _currency_rates() -> Dict[str, float]:
+    """Private multipliers that convert account currency profit fields to EUR.
+
+    Example for a USD account: CURRENCY_RATES={"USD":0.8531}. Values stay on the
+    bridge; the dashboard only receives already-converted numbers.
+    """
+    raw = (os.getenv("CURRENCY_RATES") or "").strip()
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except (ValueError, TypeError):
+        return {}
+    if not isinstance(parsed, dict):
+        return {}
+    rates: Dict[str, float] = {}
+    for key, value in parsed.items():
+        try:
+            rate = float(value)
+        except (TypeError, ValueError):
+            continue
+        if rate > 0:
+            rates[str(key).upper()] = rate
+    return rates
+
+
+STARTING_BALANCE = _starting_balance()
+CURRENCY_RATES = _currency_rates()
 
 
 def _agent_config() -> List[Dict[str, Any]]:
@@ -74,6 +112,12 @@ def _agent_config() -> List[Dict[str, Any]]:
 AGENTS = _agent_config()
 _tracker = TelemetryTracker(alpha=float(os.getenv("VELOCITY_EMA_ALPHA", "0.35")))
 _lock = threading.Lock()
+
+
+def _eur_rate(currency: str) -> float:
+    """Return the multiplier that converts account currency into display currency."""
+    upper = str(currency or "").upper()
+    return CURRENCY_RATES.get(upper, 1.0)
 def _timestamp(now: float) -> str:
     return datetime.fromtimestamp(now, timezone.utc).isoformat()
 
@@ -190,6 +234,10 @@ def _collect_once() -> Dict[str, Any]:
         "balance": float(getattr(account_raw, "balance", 0) or 0),
         "equity": float(getattr(account_raw, "equity", 0) or 0),
         "profit": float(getattr(account_raw, "profit", 0) or 0),
+        "margin": float(getattr(account_raw, "margin", 0) or 0),
+        "marginFree": float(getattr(account_raw, "margin_free", 0) or 0),
+        "marginLevel": float(getattr(account_raw, "margin_level", 0) or 0),
+        "leverage": int(getattr(account_raw, "leverage", 0) or 0),
         "currency": str(getattr(account_raw, "currency", "EUR") or "EUR"),
     }
     positions_raw = mt5.positions_get() or []
@@ -218,20 +266,40 @@ def _collect_once() -> Dict[str, Any]:
         symbol = str(position.get("symbol") or "")
         position["contract_size"] = contract_sizes.get(symbol, 1.0)
 
-    bots = _tracker.aggregate(positions, AGENTS, ticks, tick_sizes, account["balance"], account["equity"], now)
+    bots = _tracker.aggregate(
+        positions,
+        AGENTS,
+        ticks,
+        tick_sizes,
+        account["balance"],
+        account["equity"],
+        now,
+        history=mt5.history_deals_get(0, int(now) + 60) or [],
+        currency_rate=_eur_rate(account["currency"]),
+        starting_balance=STARTING_BALANCE * _eur_rate(account["currency"]),
+    )
+    rate = _eur_rate(account["currency"])
+    balance = account["balance"] * rate
+    equity = account["equity"] * rate
     return {
         "status": {"connected": True, "last_error": None, "timestamp": _timestamp(now)},
-        "account": account,
+        "account": {**account, "balance": balance, "equity": equity, "profit": account["profit"] * rate, "margin": account["margin"] * rate, "marginFree": account["marginFree"] * rate},
         "positions": positions,
         "ticks": ticks,
         "bots": bots,
-        "balance": account["balance"],
-        "equity": account["equity"],
-        "floatingPnl": account["equity"] - account["balance"],
+        "balance": balance,
+        "equity": equity,
+        "floatingPnl": equity - balance,
+        "margin": account["margin"] * rate,
+        "marginFree": account["marginFree"] * rate,
+        "marginLevel": account["marginLevel"],
+        "leverage": account["leverage"],
+        "openPositions": len(positions),
         "startingBalance": STARTING_BALANCE,
-        "totalReturn": account["balance"] - STARTING_BALANCE,
-        "totalReturnPct": (account["balance"] - STARTING_BALANCE) / STARTING_BALANCE * 100,
-        "currency": account["currency"],
+        "totalReturn": account["balance"] * rate - STARTING_BALANCE,
+        "totalReturnPct": (account["balance"] * rate - STARTING_BALANCE) / STARTING_BALANCE * 100 if STARTING_BALANCE else 0,
+        "totalReturnBase": "EUR" if _eur_rate(account["currency"]) != 1.0 else account["currency"],
+        "currency": "EUR" if rate != 1.0 else account["currency"],
         "source": "bridge",
         "connectionState": "connected",
         "timestamp": _timestamp(now),

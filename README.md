@@ -97,6 +97,23 @@ BOT_4_MAGIC=real magic number
 
 Optional `BOT_1_SYMBOL` through `BOT_4_SYMBOL` values improve display only. Until a Magic Number is supplied, that bot remains flat and no position is attributed to it.
 
+### Percentage gains per bot
+
+The dashboard shows, in real time, the profit percentage of each bot:
+
+- `floatingReturnPct` — open positions PnL divided by the starting capital.
+- `closedReturnPct` — profit already closed by that bot (read from MT5 deal history), divided by the starting capital.
+- `totalReturnPct` — the sum of both.
+
+Two private environment values control the math:
+
+```text
+STARTING_BALANCE=1350
+CURRENCY_RATES={"USD":0.8531}
+```
+
+`STARTING_BALANCE` is the capital the bots started with. If the account is not in EUR, `CURRENCY_RATES` converts profit fields for display; the values stay on the bridge and the browser only receives converted numbers. A bot with several Magic Numbers can be configured with `AGENT_MAP`.
+
 ## Verify the local bridge
 
 Without a token, `/health` must return `401`:
@@ -149,6 +166,16 @@ BRIDGE_TOKEN=<same private token as the Windows bridge>
 ```
 
 Restart the public dashboard. Open its root `/` URL, never `/EA-MT5/`. Keep the bridge and tunnel windows open. A temporary tunnel URL changes after restart; use a named tunnel for a durable public URL.
+
+### Check the bots from the phone
+
+The phone needs nothing installed and adds zero load to the laptop:
+
+1. Open the public dashboard URL in the mobile browser (add it to the home screen for an app-like icon).
+2. The data path is `phone -> public web -> HTTPS tunnel -> laptop bridge -> MT5`. The bridge already runs on the laptop, so no extra process is needed.
+3. The HUD is responsive; the per-bot percentage list stays readable on small screens.
+
+The mobile MetaTrader 5 app shows the same account but cannot attribute profit per EA like the dashboard does, because phone terminals do not expose Magic Numbers to external apps.
 
 ## Production configuration
 

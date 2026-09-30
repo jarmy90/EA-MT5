@@ -18,13 +18,19 @@ type RawPosition = {
 type RawBot = Partial<Bot> & { updatedAt?: string | number };
 type RawTelemetry = {
   status?: { connected?: boolean; timestamp?: string | number; last_error?: string | null };
-  account?: { balance?: number; equity?: number; currency?: string } | null;
+  account?: { balance?: number; equity?: number; margin?: number; marginFree?: number; currency?: string } | null;
   balance?: number;
   equity?: number;
   floatingPnl?: number;
+  margin?: number;
+  marginFree?: number;
+  marginLevel?: number;
+  leverage?: number;
+  openPositions?: number;
   startingBalance?: number;
   totalReturn?: number;
   totalReturnPct?: number;
+  totalReturnBase?: string;
   bots?: RawBot[];
   positions?: RawPosition[];
   timestamp?: string | number;
@@ -40,7 +46,7 @@ const botIdentities: BotIdentity[] = [1, 2, 3, 4].map((index) => ({
 const dev = process.env.NODE_ENV !== "production";
 const port = Number(process.env.PORT ?? 3000);
 const host = process.env.HOST ?? "0.0.0.0";
-const startingBalance = 1350;
+const startingBalance = Number(process.env.STARTING_BALANCE ?? 1350) || 1350;
 const staleAfterMs = 5000;
 const disconnectedAfterMs = 15000;
 const app = next({ dev });
@@ -68,6 +74,7 @@ function emptyBot(identity: BotIdentity, now: string): Bot {
     state: "flat",
     symbol: null,
     pnl: 0,
+    closedPnl: 0,
     profit: 0,
     swap: 0,
     commission: 0,
@@ -75,10 +82,14 @@ function emptyBot(identity: BotIdentity, now: string): Bot {
     openPositions: 0,
     exposurePct: 0,
     balanceUsagePct: 0,
+    floatingReturnPct: 0,
+    closedReturnPct: 0,
+    totalReturnPct: 0,
     pnlVelocity: 0,
     marketVelocity: 0,
     priceAverage: null,
     priceCurrent: null,
+    positions: [],
     updatedAt: now,
   };
 }
@@ -107,15 +118,26 @@ function normalizeHttpTelemetry(raw: RawTelemetry): Telemetry {
   const actualBalance = balance || accountBalance;
   const totalReturn = numberValue(raw.totalReturn, actualBalance - startingBalance);
   const totalReturnPct = numberValue(raw.totalReturnPct, startingBalance ? totalReturn / startingBalance * 100 : 0);
+  const margin = numberValue(raw.margin ?? raw.account?.margin);
+  const marginFree = numberValue(raw.marginFree ?? raw.account?.marginFree);
+  const marginLevel = numberValue(raw.marginLevel);
+  const leverage = Math.max(0, Math.trunc(numberValue(raw.leverage)));
+  const openPositions = Math.max(0, Math.trunc(numberValue(raw.openPositions, Array.isArray(raw.positions) ? raw.positions.length : 0)));
 
   return telemetrySchema.parse({
     type: "telemetry",
     balance: actualBalance,
     equity,
     floatingPnl,
+    margin,
+    marginFree,
+    marginLevel,
+    leverage,
+    openPositions,
     startingBalance,
     totalReturn,
     totalReturnPct,
+    totalReturnBase: typeof raw.totalReturnBase === "string" ? raw.totalReturnBase : undefined,
     currency: raw.account?.currency ?? "EUR",
     timestamp,
     source: "bridge",
@@ -145,6 +167,7 @@ function offlineTelemetry(state: "stale" | "disconnected", last: Telemetry | nul
       state: "flat" as const,
       symbol: null,
       pnl: 0,
+      closedPnl: 0,
       profit: 0,
       swap: 0,
       commission: 0,
@@ -152,19 +175,28 @@ function offlineTelemetry(state: "stale" | "disconnected", last: Telemetry | nul
       openPositions: 0,
       exposurePct: 0,
       balanceUsagePct: 0,
+      floatingReturnPct: 0,
+      closedReturnPct: 0,
+      totalReturnPct: 0,
       pnlVelocity: 0,
       marketVelocity: 0,
       priceAverage: null,
       priceCurrent: null,
+      positions: [],
       updatedAt: now,
     }));
-    return withConnectionState({ ...last, balance: 0, equity: 0, floatingPnl: 0, totalReturn: 0, totalReturnPct: 0, timestamp: now, bots: safeBots }, state);
+    return withConnectionState({ ...last, balance: 0, equity: 0, floatingPnl: 0, margin: 0, marginFree: 0, marginLevel: 0, openPositions: 0, totalReturn: 0, totalReturnPct: 0, timestamp: now, bots: safeBots }, state);
   }
   return telemetrySchema.parse({
     type: "telemetry",
     balance: 0,
     equity: 0,
     floatingPnl: 0,
+    margin: 0,
+    marginFree: 0,
+    marginLevel: 0,
+    leverage: 0,
+    openPositions: 0,
     startingBalance,
     totalReturn: 0,
     totalReturnPct: 0,
