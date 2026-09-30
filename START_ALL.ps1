@@ -70,7 +70,8 @@ try {
   Write-Host "   [AVISO] El puente aun no responde; seguira reintentando solo." -ForegroundColor Yellow
 }
 
-Write-Host "[5/6] Arrancando la web (logs en web_log.txt / web_err.txt)..."
+Write-Host "[5/6] Limpiando cache de compilacion y arrancando la web..."
+if (Test-Path .next) { Remove-Item -Recurse -Force .next -ErrorAction SilentlyContinue }
 $out = Join-Path $dir "web_log.txt"
 $err = Join-Path $dir "web_err.txt"
 $web = Start-Process bun -ArgumentList "run","dev" -WorkingDirectory $dir -RedirectStandardOutput $out -RedirectStandardError $err -PassThru -WindowStyle Hidden
