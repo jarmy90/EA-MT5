@@ -24,6 +24,7 @@ export function HUD() {
   }, [data]);
 
   const connectionLabel = demo ? "DEMO · SIMULACIÓN" : live ? "MT5 LIVE" : data?.connectionState === "stale" ? "DATOS ANTIGUOS" : connected ? "PUENTE DESCONECTADO" : "RECONECTANDO";
+  const bridgeError = live ? null : data?.bridgeError ?? null;
   const pct = (value: number) => `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 
   return (
@@ -35,6 +36,7 @@ export function HUD() {
         </div>
         <div className="status-block">
           <span className={`live ${live ? "" : "upstream-offline"}`}><i className="status" />{connectionLabel}</span>
+          {!live && bridgeError && <span className="err-detail">MT5: {bridgeError}</span>}
           <div className="controls">
             <button className={sound ? "active" : ""} onClick={() => setSound(!sound)}>♫ Sonido ambiente</button>
           </div>

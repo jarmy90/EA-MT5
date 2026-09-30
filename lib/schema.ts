@@ -58,6 +58,7 @@ export const telemetrySchema = z.object({
   source: z.enum(["mock", "bridge"]),
   bridgeConnected: z.boolean(),
   connectionState: z.enum(["connected", "stale", "disconnected"]),
+  bridgeError: z.string().nullish(),
 });
 
 export type Position = z.infer<typeof positionSchema>;

@@ -163,6 +163,7 @@ function normalizeHttpTelemetry(raw: RawTelemetry): Telemetry {
     source: "bridge",
     bridgeConnected: connected,
     connectionState: connected ? "connected" : "disconnected",
+    bridgeError: typeof raw.status?.last_error === "string" && raw.status.last_error ? raw.status.last_error : null,
     bots,
   });
 }
@@ -229,6 +230,7 @@ function offlineTelemetry(state: "stale" | "disconnected", last: Telemetry | nul
     source: "bridge",
     bridgeConnected: false,
     connectionState: state,
+    bridgeError: null,
     bots: botIdentities.map((identity) => emptyBot(identity, now)),
   });
 }

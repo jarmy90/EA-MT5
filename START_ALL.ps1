@@ -41,6 +41,22 @@ Write-Host "[3/4] Arrancando puente MT5 (ventana minimizada)..."
 Start-Process cmd -ArgumentList "/k","start_mision_control.bat" -WorkingDirectory $dir -WindowStyle Minimized
 Start-Sleep -Seconds 2
 
+$token = ""
+Get-Content .env | ForEach-Object { if ($_ -match '^BRIDGE_TOKEN=(.+)$') { $token = $Matches[1].Trim() } }
+try {
+  $headers = @{}
+  if ($token) { $headers.Authorization = "Bearer $token" }
+  $health = Invoke-RestMethod -Uri "http://127.0.0.1:8000/health" -Headers $headers -TimeoutSec 5
+  if ($health.connected) {
+    Write-Host "   [OK] MT5 conectado: el puente lee tu terminal." -ForegroundColor Green
+  } else {
+    Write-Host "   [AVISO] El puente vive pero MT5 no esta conectado: "$health.last_error -ForegroundColor Yellow
+    Write-Host '           Abre MetaTrader 5 y espera unos segundos; el panel se reconecta solo.' -ForegroundColor Yellow
+  }
+} catch {
+  Write-Host "   [AVISO] El puente aun no responde; seguira reintentando." -ForegroundColor Yellow
+}
+
 Write-Host "[4/4] Arrancando la web..."
 $out = Join-Path $dir "web_log.txt"
 $err = Join-Path $dir "web_err.txt"
