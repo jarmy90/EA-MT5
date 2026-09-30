@@ -8,24 +8,43 @@ color 0B
 echo.
 echo ================================================================
 echo                 QUANTORA ORBIT - START ALL
-echo ================================================================
 echo  Orbit web:       http://localhost:3000/
-echo  Orbit WebSocket: ws://localhost:3000/ws
 echo  MT5 health:      http://127.0.0.1:8000/health
-echo  MT5 telemetry:   http://127.0.0.1:8000/telemetry
-echo.
-echo  Starting the read-only MT5 bridge and Orbit web only.
-echo  No legacy WAWA application is started.
 echo ================================================================
 echo.
+
+where bun >nul 2>nul
+if errorlevel 1 (
+  echo [ERROR] Bun no esta instalado o no esta en el PATH.
+  echo         Instalalo con:  powershell -c "irm bun.sh/install.ps1 | iex"
+  pause
+  exit /b 1
+)
+
+if not exist "node_modules\" (
+  echo [INFO] Primera vez: instalando dependencias web (1-2 minutos)...
+  call bun install
+  if errorlevel 1 (
+    echo [ERROR] Fallo bun install. Revisa tu conexion e intentalo de nuevo.
+    pause
+    exit /b 1
+  )
+)
+
+if not exist ".env" (
+  echo [ERROR] Falta el archivo .env en esta carpeta.
+  echo         Crea el .env con DATA_SOURCE=bridge y tus BOT_x_MAGIC.
+  pause
+  exit /b 1
+)
 
 start "Quantora Orbit - MT5 Read-Only Bridge" /D "%~dp0" cmd /k "start_mision_control.bat"
 timeout /t 2 /nobreak >nul
 start "Quantora Orbit Web" /D "%~dp0" cmd /k "bun run dev"
-timeout /t 4 /nobreak >nul
+timeout /t 6 /nobreak >nul
 start "" "http://localhost:3000/"
 
-echo [OK] Bridge window started on 127.0.0.1:8000.
-echo [OK] Orbit window started on localhost:3000.
-echo [INFO] Keep both windows open. Use STOP_ALL.bat to stop these launchers.
+echo [OK] Puente iniciado en 127.0.0.1:8000.
+echo [OK] Web iniciada en localhost:3000.
+echo [INFO] Deja las dos ventanas abiertas. Usa STOP_ALL.bat para cerrarlas.
 endlocal

@@ -97,19 +97,26 @@ def _agent_config() -> List[Dict[str, Any]]:
     """
     defaults = [
         {"id": "bot-1", "name": "StochExtreme USTEC", "symbol": "USTEC", "tags": ["STOCHEXTREME"]},
-        {"id": "bot-2", "name": "FirstTriangle USTEC", "symbol": "USTEC", "tags": ["QUANTORA FIRSTTRIANGLE", "FIRSTTRIANGLE"]},
-        {"id": "bot-3", "name": "StochExtreme XAUUSD", "symbol": "XAUUSD", "tags": ["STOCHEXTREME"]},
-        {"id": "bot-4", "name": "FirstTriangle XAUUSD", "symbol": "XAUUSD", "tags": ["QUANTORA FIRSTTRIANGLE", "FIRSTTRIANGLE"]},
+        {"id": "bot-2", "name": "Descargar USTEC M30", "symbol": "USTEC", "tags": ["DESCARGAR USTEC", "FIRSTTRIANGLE", "QUANTORA FIRSTTRIANGLE"]},
+        {"id": "bot-3", "name": "StochExtreme Oro", "symbol": "XAUUSD", "tags": ["STOCHEXTREME"]},
+        {"id": "bot-4", "name": "Descargar Oro M15", "symbol": "XAUUSD", "tags": ["DESCARGAR ORO", "FIRSTTRIANGLE"]},
+        {"id": "bot-5", "name": "VDPM DAX H1", "symbol": "DE40", "tags": ["VDPM"]},
+        {"id": "bot-6", "name": "US500 Pro", "symbol": "US500", "tags": ["US500_PRO", "US500"]},
     ]
     agents: List[Dict[str, Any]] = []
-    for index in range(1, 5):
-        raw_magic = os.getenv(f"BOT_{index}_MAGIC", "").strip()
-        base = dict(defaults[index - 1])
+    for index in range(1, 9):
+        keys = ("NAME", "MAGIC", "SYMBOL", "TAGS")
+        has_config = any((os.getenv(f"BOT_{index}_{key}", "") or "").strip() for key in keys)
+        if index > len(defaults) and not has_config:
+            continue
+        base = dict(defaults[index - 1]) if index <= len(defaults) else {
+            "id": f"bot-{index}", "name": f"Bot {index}", "symbol": None, "tags": [],
+        }
         agents.append({
             **base,
             "name": os.getenv(f"BOT_{index}_NAME", "").strip() or base["name"],
             "symbol": os.getenv(f"BOT_{index}_SYMBOL", "").strip() or base["symbol"],
-            "magic": int(raw_magic) if raw_magic.lstrip("-").isdigit() else None,
+            "magic": int(raw_magic) if (raw_magic := os.getenv(f"BOT_{index}_MAGIC", "").strip()).lstrip("-").isdigit() else None,
         })
 
     # AGENT_MAP remains supported for existing private deployments, without defaults.
@@ -152,6 +159,13 @@ def _empty_bots(now: float) -> List[Dict[str, Any]]:
     return [{
         "id": agent["id"],
         "name": agent["name"],
+        "closedPnl": 0.0,
+        "floatingReturnPct": 0.0,
+        "closedReturnPct": 0.0,
+        "totalReturnPct": 0.0,
+        "closedTrades": 0,
+        "winRatePct": 0.0,
+        "positions": [],
         "active": False,
         "state": "flat",
         "symbol": None,

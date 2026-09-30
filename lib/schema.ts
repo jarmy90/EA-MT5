@@ -53,7 +53,7 @@ export const telemetrySchema = z.object({
   totalReturnPct: z.number().finite(),
   totalReturnBase: z.string().optional(),
   currency: z.string(),
-  bots: z.array(botSchema).length(4),
+  bots: z.array(botSchema).min(1).max(12),
   timestamp: z.string(),
   source: z.enum(["mock", "bridge"]),
   bridgeConnected: z.boolean(),

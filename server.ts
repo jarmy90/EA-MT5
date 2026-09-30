@@ -38,10 +38,21 @@ type RawTelemetry = {
 
 type BotIdentity = { id: string; name: string };
 
-const botIdentities: BotIdentity[] = [1, 2, 3, 4].map((index) => ({
-  id: `bot-${index}`,
-  name: process.env[`BOT_${index}_NAME`]?.trim() ?? "",
-}));
+const DEFAULT_BOT_NAMES = [
+  "StochExtreme USTEC",
+  "Descargar USTEC M30",
+  "StochExtreme Oro",
+  "Descargar Oro M15",
+  "VDPM DAX H1",
+  "US500 Pro",
+];
+const botIdentities: BotIdentity[] = [
+  ...DEFAULT_BOT_NAMES.map((name, index) => ({ id: `bot-${index + 1}`, name })),
+  ...[7, 8, 9, 10].map((index) => ({
+    id: `bot-${index}`,
+    name: process.env[`BOT_${index}_NAME`]?.trim() ?? "",
+  })).filter((identity) => identity.name),
+];
 
 const dev = process.env.NODE_ENV !== "production";
 const port = Number(process.env.PORT ?? 3000);
@@ -115,7 +126,13 @@ function normalizeHttpTelemetry(raw: RawTelemetry): Telemetry {
   const floatingPnl = numberValue(raw.floatingPnl, equity - balance);
   const timestamp = isoTimestamp(raw.timestamp ?? raw.status?.timestamp, now);
   const sourceBots = Array.isArray(raw.bots) ? raw.bots : [];
-  const bots = botIdentities.map((identity, index) => normalizeBot(sourceBots[index], identity, timestamp));
+  const bots = sourceBots.map((rawBot, index) => {
+    const identity = botIdentities[index] ?? { id: `bot-${index + 1}`, name: `Bot ${index + 1}` };
+    return normalizeBot(rawBot, identity, timestamp);
+  });
+  if (bots.length === 0) {
+    bots.push(...botIdentities.slice(0, 6).map((identity) => emptyBot(identity, timestamp)));
+  }
   const connected = raw.status?.connected === true && (balance > 0 || accountBalance > 0);
   const actualBalance = balance || accountBalance;
   const totalReturn = numberValue(raw.totalReturn, actualBalance - startingBalance);
