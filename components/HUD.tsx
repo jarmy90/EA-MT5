@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { useTelemetry } from "./WebSocketProvider";
 
 export function HUD() {
-  const { data, connected, selected, setSelected, cinema, setCinema, sound, setSound, moments } = useTelemetry();
+  const { data, connected, selected, setSelected, sound, setSound } = useTelemetry();
   const audio = useRef<AudioContext | null>(null);
   const gain = useRef<GainNode | null>(null);
   const live = data?.source === "bridge" && data.connectionState === "connected" && data.bridgeConnected;
@@ -23,95 +23,92 @@ export function HUD() {
     }
   }, [data]);
 
-  const connectionLabel = demo ? "DEMO DATA · SIMULACIÓN" : live ? "MT5 LIVE" : data?.connectionState === "stale" ? "STALE DATA" : connected ? "BRIDGE DISCONNECTED" : "RECONNECTING";
-  const bot = data?.bots.find((item) => item.id === selected);
+  const connectionLabel = demo ? "DEMO · SIMULACIÓN" : live ? "MT5 LIVE" : data?.connectionState === "stale" ? "DATOS ANTIGUOS" : connected ? "PUENTE DESCONECTADO" : "RECONECTANDO";
   const pct = (value: number) => `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
-  const money = data ? (value: number) => `${value >= 0 ? "+" : ""}${value.toFixed(2)} ${data.currency}` : (value: number) => value.toFixed(2);
-  const marginLevelColor = !data || data.marginLevel <= 0 || data.marginLevel >= 200 ? "positive" : data.marginLevel >= 100 ? "" : "negative";
 
   return (
-    <div className="hud" onClick={() => setSelected(null)}>
-      <div className="top">
-        <div className="glass brand">QUANTORA · ORBIT</div>
-        <div className="glass metrics">
-          <Metric label="Balance" value={data ? `${data.balance.toFixed(2)} ${data.currency}` : "—"} />
-          <Metric label="Equity" value={data ? `${data.equity.toFixed(2)} ${data.currency}` : "—"} />
-          <Metric
-            label="Ganancia total"
-            value={data ? `${pct(data.totalReturnPct)} · ${money(data.totalReturn)}` : "—"}
-            cls={(data?.totalReturn ?? 0) >= 0 ? "positive" : "negative"}
-          />
-          <Metric label="Margen usado" value={data ? `${data.margin.toFixed(2)} ${data.currency}` : "—"} />
-          <Metric label="Margen libre" value={data ? `${data.marginFree.toFixed(2)} ${data.currency}` : "—"} />
-          <Metric label="Nivel de margen" value={data && data.marginLevel > 0 ? `${data.marginLevel.toFixed(2)}%` : "—"} cls={marginLevelColor} />
-          <Metric label="Posiciones" value={data ? `${data.openPositions}${data.leverage ? ` · 1:${data.leverage}` : ""}` : "—"} />
-          <span className={`live ${live ? "" : "upstream-offline"}`}><i className="status" />{connectionLabel}</span>
+    <div className="dash" onClick={() => setSelected(null)}>
+      <header className="dash-top">
+        <div className="brand-block">
+          <div className="brand-title">QUANTORA · ORBIT</div>
+          <div className="brand-sub">Four EAs · One trading system · Datos en tiempo real</div>
         </div>
-      </div>
+        <div className="status-block">
+          <span className={`live ${live ? "" : "upstream-offline"}`}><i className="status" />{connectionLabel}</span>
+          <div className="controls">
+            <button className={sound ? "active" : ""} onClick={() => setSound(!sound)}>♫ Sonido ambiente</button>
+          </div>
+        </div>
+      </header>
 
-      <div className="bottom">
-        <div className="bottom-col">
-          {data && (
-            <div className="glass bots" onClick={(event) => event.stopPropagation()}>
-              <small>Ganancia por bot · tiempo real</small>
-              {data.bots.map((item, index) => (
-                <button
-                  key={item.id}
-                  className={`bot-row ${selected === item.id ? "selected" : ""} ${item.active ? "" : "idle"}`}
-                  onClick={() => setSelected(selected === item.id ? null : item.id)}
-                >
-                  <span className="bot-index">{index + 1}</span>
-                  <span className="bot-name">{item.name}<i>{item.active ? `${item.symbol ?? "MIXED"} · ${item.state.toUpperCase()}` : "SIN POSICIÓN"}</i></span>
-                  <span className={`bot-pct ${item.totalReturnPct >= 0 ? "positive" : "negative"}`}>
-                    {pct(item.totalReturnPct)}
-                    <i>{item.floatingReturnPct !== 0 ? `flotante ${pct(item.floatingReturnPct)}` : `cerrada ${pct(item.closedReturnPct)}`}</i>
-                  </span>
-                </button>
-              ))}
+      {data && (
+        <section className="account" onClick={(event) => event.stopPropagation()}>
+          <div className="account-main">
+            <div className="metric"><small>Balance</small><strong>{data.balance.toFixed(2)} {data.currency}</strong></div>
+            <div className="metric"><small>Equidad</small><strong>{data.equity.toFixed(2)} {data.currency}</strong></div>
+            <div className="metric">
+              <small>Ganancia total desde {data.startingBalance.toFixed(0)} {data.currency}</small>
+              <strong className={(data.totalReturn ?? 0) >= 0 ? "positive" : "negative"}>
+                {pct(data.totalReturnPct)} · {data.totalReturn >= 0 ? "+" : ""}{data.totalReturn.toFixed(2)} {data.currency}
+              </strong>
             </div>
-          )}
-          {bot && <div className="glass detail" onClick={(event) => event.stopPropagation()}>
-            <small>Entidad seleccionada</small><h2>{bot.name}</h2>
-            <div className="detail-grid">
-              <Metric label="Estado" value={bot.active ? bot.state.toUpperCase() : "SIN POSICIÓN"} />
-              <Metric label="Símbolo" value={bot.symbol ?? "—"} />
-              <Metric label="PnL real" value={`${bot.pnl.toFixed(2)} ${data?.currency ?? "EUR"}`} cls={bot.pnl >= 0 ? "positive" : "negative"} />
-              <Metric label="Retorno flotante" value={pct(bot.floatingReturnPct)} cls={bot.floatingReturnPct >= 0 ? "positive" : "negative"} />
-              <Metric label="PnL cerrado" value={`${bot.closedPnl.toFixed(2)} ${data?.currency ?? "EUR"}`} cls={bot.closedPnl >= 0 ? "positive" : "negative"} />
-              <Metric label="Retorno cerrado" value={pct(bot.closedReturnPct)} cls={bot.closedReturnPct >= 0 ? "positive" : "negative"} />
-              <Metric label="Retorno total" value={pct(bot.totalReturnPct)} cls={bot.totalReturnPct >= 0 ? "positive" : "negative"} />
-              <Metric label="Volumen" value={bot.volume.toFixed(2)} />
-              <Metric label="Exposición" value={`${bot.exposurePct.toFixed(2)}%`} />
-              <Metric label="Velocidad PnL" value={`${bot.pnlVelocity.toFixed(4)}/s`} />
-              <Metric label="Precio medio" value={bot.priceAverage?.toFixed(2) ?? "—"} />
-              <Metric label="Actualizado" value={new Date(bot.updatedAt).toLocaleTimeString()} />
+          </div>
+          <div className="account-side">
+            <div className="metric"><small>Flotante ahora</small><strong className={data.floatingPnl >= 0 ? "positive" : "negative"}>{data.floatingPnl >= 0 ? "+" : ""}{data.floatingPnl.toFixed(2)} {data.currency}</strong></div>
+            <div className="metric"><small>Margen usado</small><strong>{data.margin.toFixed(2)}</strong></div>
+            <div className="metric"><small>Margen libre</small><strong>{data.marginFree.toFixed(2)}</strong></div>
+            <div className="metric"><small>Nivel de margen</small><strong className={!data.marginLevel || data.marginLevel >= 200 ? "positive" : data.marginLevel >= 100 ? "" : "negative"}>{data.marginLevel > 0 ? `${data.marginLevel.toFixed(1)}%` : "—"}</strong></div>
+            <div className="metric"><small>Posiciones abiertas</small><strong>{data.openPositions}{data.leverage ? ` · 1:${data.leverage}` : ""}</strong></div>
+          </div>
+        </section>
+      )}
+
+      <section className="grid" onClick={(event) => event.stopPropagation()}>
+        {data?.bots.map((bot) => (
+          <article
+            key={bot.id}
+            className={`card ${selected === bot.id ? "selected" : ""} ${bot.active ? "is-active" : "is-idle"}`}
+            onClick={() => setSelected(selected === bot.id ? null : bot.id)}
+          >
+            <header className="card-head">
+              <h2>{bot.name}</h2>
+              <span className={`badge ${bot.active ? "on" : "off"}`}>{bot.active ? "ACTIVO" : "EN ESPERA"}</span>
+            </header>
+            <div className="card-symbol">{bot.symbol ?? "SIN SÍMBOLO"}</div>
+            <div className="card-pct">
+              <span className={`big ${bot.totalReturnPct >= 0 ? "positive" : "negative"}`}>{pct(bot.totalReturnPct)}</span>
+              <span className="of">sobre {data?.startingBalance.toFixed(0) ?? "—"} {data?.currency}</span>
+            </div>
+            <div className="card-split">
+              <div><small>Flotante</small><b className={bot.floatingReturnPct >= 0 ? "positive" : "negative"}>{pct(bot.floatingReturnPct)}</b></div>
+              <div><small>Cerrada</small><b className={bot.closedReturnPct >= 0 ? "positive" : "negative"}>{pct(bot.closedReturnPct)}</b></div>
+              <div><small>PnL real</small><b className={bot.pnl >= 0 ? "positive" : "negative"}>{bot.pnl >= 0 ? "+" : ""}{bot.pnl.toFixed(2)} {data?.currency ?? "EUR"}</b></div>
+            </div>
+            <div className="card-stats">
+              <div><small>Operaciones</small><b>{bot.closedTrades}</b></div>
+              <div><small>Aciertos</small><b>{bot.winRatePct.toFixed(0)}%</b></div>
+              <div><small>Abiertas ahora</small><b>{bot.openPositions}</b></div>
+              <div><small>Volumen</small><b>{bot.volume.toFixed(2)}</b></div>
             </div>
             {bot.positions.length > 0 && (
-              <div className="positions">
-                <small>Posiciones abiertas</small>
+              <div className="card-positions">
                 {bot.positions.map((position) => (
-                  <div className="position-row" key={position.ticket}>
-                    <span className="position-main">
-                      <b>{position.symbol}</b> <em className={position.side === "buy" ? "positive" : "negative"}>{position.side} {position.volume.toFixed(2)}</em>
-                      <i>{position.priceOpen?.toFixed(2) ?? "—"} → {position.priceCurrent?.toFixed(2) ?? "—"}</i>
-                    </span>
+                  <div className="row" key={position.ticket}>
+                    <span className={`side ${position.side === "buy" ? "long" : "short"}`}>{position.side === "buy" ? "▲" : "▼"} {position.side.toUpperCase()}</span>
+                    <span className="sym">{position.symbol}</span>
+                    <span className="vol">{position.volume.toFixed(2)}</span>
+                    <span className="prices">{position.priceOpen?.toFixed(2)} → {position.priceCurrent?.toFixed(2)}</span>
                     <strong className={position.profit >= 0 ? "positive" : "negative"}>{position.profit >= 0 ? "+" : ""}{position.profit.toFixed(2)}</strong>
                   </div>
                 ))}
               </div>
             )}
-            {!bot.active && <p className="hint">{data?.connectionState === "connected" ? "BOT CONECTADO · SIN POSICIÓN ABIERTA · ESPERANDO SEÑAL" : "BRIDGE DISCONNECTED · SIN DATOS ACTIVOS"}</p>}
-          </div>}
-        </div>
+            <footer className="card-foot">Actualizado {new Date(bot.updatedAt).toLocaleTimeString()}</footer>
+          </article>
+        ))}
+      </section>
 
-        <div><div className="glass controls" onClick={(event) => event.stopPropagation()}><button className={cinema ? "active" : ""} onClick={() => setCinema(!cinema)}>◉ Cinema</button><button className={sound ? "active" : ""} onClick={() => setSound(!sound)}>♫ Sonido</button></div>
-          {moments.length > 0 && <div className="glass moments"><small>MOMENTOS</small>{moments.map((moment, index) => <div key={`${moment}-${index}`}>{moment}</div>)}</div>}
-        </div>
-      </div>
+      <footer className="dash-note">Solo lectura · Ninguna orden se envía a MT5 · Datos vía puente local</footer>
     </div>
   );
-}
-
-function Metric({ label, value, cls = "" }: { label: string; value: string; cls?: string }) {
-  return <div className="metric"><small>{label}</small><strong className={cls}>{value}</strong></div>;
 }

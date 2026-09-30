@@ -40,6 +40,38 @@ def position_side(raw: Any) -> str:
     return "sell" if text in {"1", "sell"} else "buy"
 
 
+def agent_magics(agent: Mapping[str, Any]) -> set[int]:
+    """All magic numbers aliased to one agent (single magic plus optional list)."""
+    magics = {int(number(agent.get("magic"), -1))}
+    extra = agent.get("magics")
+    if isinstance(extra, (list, tuple)):
+        magics.update(int(number(item, -1)) for item in extra)
+    return {value for value in magics if value >= 0}
+
+
+def agent_tags(agent: Mapping[str, Any]) -> list[str]:
+    return [str(tag).strip().upper() for tag in (agent.get("tags") or []) if str(tag).strip()]
+
+
+def match_agent(item: Mapping[str, Any], definitions: list[Mapping[str, Any]]) -> Mapping[str, Any] | None:
+    """Assign a position/deal to an agent: magic first, then comment tag + symbol."""
+    magic = int(number(item.get("magic"), -1))
+    if magic >= 0:
+        for agent in definitions:
+            if magic in agent_magics(agent):
+                return agent
+    comment = str(item.get("comment") or "").strip().upper()
+    symbol = str(item.get("symbol") or "").strip().upper()
+    if comment:
+        tagged = [agent for agent in definitions
+                  if any(tag in comment for tag in agent_tags(agent))]
+        if tagged:
+            by_symbol = [agent for agent in tagged
+                         if symbol and str(agent.get("symbol") or "").upper() == symbol]
+            return (by_symbol or tagged)[0]
+    return None
+
+
 def mid_price(tick: Mapping[str, Any]) -> float:
     bid = number(tick.get("bid"))
     ask = number(tick.get("ask"))
@@ -129,29 +161,31 @@ class TelemetryTracker:
         starting_balance: float | None = None,
     ) -> list[dict[str, Any]]:
         current = now if now is not None else datetime.now(timezone.utc).timestamp()
-        definitions = list(agents)
+        definitions: list[Mapping[str, Any]] = list(agents)
         grouped: dict[str, list[Mapping[str, Any]]] = {str(agent["id"]): [] for agent in definitions}
         for position in positions:
-            magic = int(number(position.get("magic"), -1))
-            for agent in definitions:
-                if magic in {int(number(agent.get("magic"), -1))} and magic >= 0:
-                    grouped[str(agent["id"])].append(position)
-                    break
+            agent = match_agent(position, definitions)
+            if agent is not None:
+                grouped[str(agent["id"])].append(position)
 
-        # Closed P&L per bot: every deal whose magic belongs to that bot.
-        # The tracker already owns per-bot numeric state, so realized history
-        # aggregates through the same magic-keyed identities.
+        # Closed P&L per bot: every closing deal (entry != "in") owned by that bot.
         closed_pnl: dict[str, float] = {str(agent["id"]): 0.0 for agent in definitions}
+        closed_trades: dict[str, int] = {str(agent["id"]): 0 for agent in definitions}
+        wins: dict[str, int] = {str(agent["id"]): 0 for agent in definitions}
         for deal in (history or []):
-            deal_magic = int(number(deal.get("magic"), -1))
+            entry = int(number(deal.get("entry"), 1))
             deal_type = int(number(deal.get("type"), -1))
-            if deal_magic < 0 or deal_type not in (0, 1):
+            if entry == 0 or deal_type not in (0, 1):
                 continue
-            for agent in definitions:
-                agent_magic = int(number(agent.get("magic"), -1))
-                if agent_magic >= 0 and deal_magic == agent_magic:
-                    closed_pnl[str(agent["id"])] += position_pnl(deal)
-                    break
+            agent = match_agent(deal, definitions)
+            if agent is None:
+                continue
+            bot_id = str(agent["id"])
+            profit = position_pnl(deal)
+            closed_pnl[bot_id] += profit
+            closed_trades[bot_id] += 1
+            if profit > 0:
+                wins[bot_id] += 1
 
         # Bot-level percentages use the account starting capital when provided;
         # otherwise they fall back to balance minus current floating P&L.
@@ -186,6 +220,8 @@ class TelemetryTracker:
                 "floatingReturnPct": round(floating_pct, 3),
                 "closedReturnPct": round(closed_pct, 3),
                 "totalReturnPct": round(floating_pct + closed_pct, 3),
+                "closedTrades": closed_trades[bot_id],
+                "winRatePct": round(wins[bot_id] / closed_trades[bot_id] * 100, 1) if closed_trades[bot_id] else 0.0,
                 "positions": [{
                     "ticket": int(number(item.get("ticket"), 0)),
                     "symbol": str(item.get("symbol") or ""),

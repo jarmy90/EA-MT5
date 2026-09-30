@@ -1,6 +1,6 @@
 import type { Telemetry } from "../lib/schema";
 
-const names = ["Demo Alpha", "Demo Sigma", "Demo Prime", "Demo Flash"];
+const names = ["StochExtreme USTEC", "FirstTriangle USTEC", "StochExtreme XAUUSD", "FirstTriangle XAUUSD"];
 
 export function mockTelemetry(t: number): Telemetry {
   const phase = t / 8;
@@ -53,6 +53,8 @@ export function mockTelemetry(t: number): Telemetry {
         floatingReturnPct: Number((pnl / 1350 * 100).toFixed(3)),
         closedReturnPct: Number((closedPnl / 1350 * 100).toFixed(3)),
         totalReturnPct: Number(((pnl + closedPnl) / 1350 * 100).toFixed(3)),
+        closedTrades: [42, 18, 61, 12][index],
+        winRatePct: [64.3, 55.6, 70.5, 50.0][index],
         pnlVelocity: 0,
         marketVelocity: 0,
         priceAverage: active ? [30279.5, 30377.2, 4184.99, 2380.4][index] : null,

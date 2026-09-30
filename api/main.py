@@ -73,17 +73,43 @@ STARTING_BALANCE = _starting_balance()
 CURRENCY_RATES = _currency_rates()
 
 
+def _history_from() -> int:
+    """Deal history start: 2026-07-20 UTC by default (account creation)."""
+    raw = (os.getenv("HISTORY_FROM_DATE") or "2026-07-20").strip()
+    try:
+        from datetime import datetime
+        parsed = datetime.strptime(raw, "%Y-%m-%d")
+        return int(parsed.timestamp())
+    except ValueError:
+        from datetime import datetime
+        return int(datetime(2026, 7, 20).timestamp())
+
+
+HISTORY_FROM = _history_from()
+
+
 def _agent_config() -> List[Dict[str, Any]]:
-    """Load all identities from private env vars; absent magics never match positions."""
+    """Load identities from env vars, falling back to the four known EAs.
+
+    Attribution is automatic: EA name is embedded in the position comment
+    (StochExtreme/Quantora FirstTriangle/...), so magic numbers are optional
+    overrides and never required by hand.
+    """
+    defaults = [
+        {"id": "bot-1", "name": "StochExtreme USTEC", "symbol": "USTEC", "tags": ["STOCHEXTREME"]},
+        {"id": "bot-2", "name": "FirstTriangle USTEC", "symbol": "USTEC", "tags": ["QUANTORA FIRSTTRIANGLE", "FIRSTTRIANGLE"]},
+        {"id": "bot-3", "name": "StochExtreme XAUUSD", "symbol": "XAUUSD", "tags": ["STOCHEXTREME"]},
+        {"id": "bot-4", "name": "FirstTriangle XAUUSD", "symbol": "XAUUSD", "tags": ["QUANTORA FIRSTTRIANGLE", "FIRSTTRIANGLE"]},
+    ]
     agents: List[Dict[str, Any]] = []
     for index in range(1, 5):
         raw_magic = os.getenv(f"BOT_{index}_MAGIC", "").strip()
-        magic = int(raw_magic) if raw_magic.lstrip("-").isdigit() else None
+        base = dict(defaults[index - 1])
         agents.append({
-            "id": f"bot-{index}",
-            "name": os.getenv(f"BOT_{index}_NAME", f"Bot {index}").strip() or f"Bot {index}",
-            "magic": magic,
-            "symbol": os.getenv(f"BOT_{index}_SYMBOL", "").strip() or None,
+            **base,
+            "name": os.getenv(f"BOT_{index}_NAME", "").strip() or base["name"],
+            "symbol": os.getenv(f"BOT_{index}_SYMBOL", "").strip() or base["symbol"],
+            "magic": int(raw_magic) if raw_magic.lstrip("-").isdigit() else None,
         })
 
     # AGENT_MAP remains supported for existing private deployments, without defaults.
@@ -274,7 +300,7 @@ def _collect_once() -> Dict[str, Any]:
         account["balance"],
         account["equity"],
         now,
-        history=mt5.history_deals_get(0, int(now) + 60) or [],
+        history=mt5.history_deals_get(HISTORY_FROM, int(now) + 60) or [],
         currency_rate=_eur_rate(account["currency"]),
         starting_balance=STARTING_BALANCE * _eur_rate(account["currency"]),
     )
@@ -296,8 +322,8 @@ def _collect_once() -> Dict[str, Any]:
         "leverage": account["leverage"],
         "openPositions": len(positions),
         "startingBalance": STARTING_BALANCE,
-        "totalReturn": account["balance"] * rate - STARTING_BALANCE,
-        "totalReturnPct": (account["balance"] * rate - STARTING_BALANCE) / STARTING_BALANCE * 100 if STARTING_BALANCE else 0,
+        "totalReturn": equity - STARTING_BALANCE,
+        "totalReturnPct": (equity - STARTING_BALANCE) / STARTING_BALANCE * 100 if STARTING_BALANCE else 0,
         "totalReturnBase": "EUR" if _eur_rate(account["currency"]) != 1.0 else account["currency"],
         "currency": "EUR" if rate != 1.0 else account["currency"],
         "source": "bridge",
@@ -312,10 +338,11 @@ def _poll_loop() -> None:
         try:
             snapshot = _collect_once()
             balance = float(snapshot.get("balance") or 0)
+            equity = float(snapshot.get("equity") or 0)
             starting = STARTING_BALANCE
             snapshot["startingBalance"] = starting
-            snapshot["totalReturn"] = balance - starting
-            snapshot["totalReturnPct"] = ((balance - starting) / starting * 100) if starting else 0
+            snapshot["totalReturn"] = equity - starting
+            snapshot["totalReturnPct"] = ((equity - starting) / starting * 100) if starting else 0
             with _lock:
                 _snapshot = snapshot
         except Exception as exc:  # pragma: no cover

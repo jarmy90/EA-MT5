@@ -19,28 +19,27 @@ class TelemetryTests(unittest.TestCase):
         self.assertEqual(position_state([{"type": 1}]), "short")
         self.assertEqual(position_state([{"type": 0}, {"type": 1}]), "mixed")
 
-    def test_aggregate_groups_exclusively_by_magic_number(self):
+    def test_aggregate_groups_by_magic_and_comment_tag(self):
         tracker = TelemetryTracker(alpha=1)
         agents = [
-            {"id": "one", "name": "EA One", "magic": 101},
-            {"id": "two", "name": "EA Two", "magic": 202},
-            {"id": "three", "name": "EA Three", "magic": 303},
-            {"id": "four", "name": "EA Four", "magic": 404},
+            {"id": "one", "name": "EA One", "magic": 101, "symbol": "USTEC"},
+            {"id": "two", "name": "EA Two", "magic": None, "symbol": "USTEC", "tags": ["STOCH"]},
+            {"id": "three", "name": "EA Three", "magic": None, "symbol": "XAUUSD", "tags": ["STOCH"]},
+            {"id": "four", "name": "EA Four", "magic": None, "symbol": "XAUUSD", "tags": ["TRIANGLE"]},
         ]
         positions = [
-            {"magic": 101, "symbol": "EURUSD", "type": 0, "volume": 1, "price_open": 1.1, "price_current": 1.2, "profit": 10, "swap": 1, "commission": -1},
-            {"magic": 101, "symbol": "EURUSD", "type": 0, "volume": 2, "price_open": 1.1, "price_current": 1.2, "profit": 5, "swap": 0, "commission": 0},
-            {"magic": 202, "symbol": "EURUSD", "type": 1, "volume": 1, "price_open": 1.2, "price_current": 1.1, "profit": -4, "swap": -1, "commission": 0},
-            {"magic": 999, "symbol": "EURUSD", "type": 0, "volume": 50, "profit": 999},
+            {"magic": 101, "symbol": "USTEC", "type": 0, "volume": 1, "price_open": 1.1, "price_current": 1.2, "profit": 10, "swap": 1, "commission": -1, "comment": "Quantora FirstTriangle BUY"},
+            {"magic": 0, "symbol": "USTEC", "type": 0, "volume": 2, "price_open": 1.1, "price_current": 1.2, "profit": 5, "swap": 0, "commission": 0, "comment": "StochExtreme BUY"},
+            {"magic": 0, "symbol": "XAUUSD", "type": 1, "volume": 1, "price_open": 1.2, "price_current": 1.1, "profit": -4, "swap": -1, "commission": 0, "comment": "StochExtreme SELL"},
+            {"magic": 0, "symbol": "XAUUSD", "type": 0, "volume": 50, "profit": 999, "comment": "FirstTriangle BUY"},
         ]
-        first = tracker.aggregate(positions, agents, {"EURUSD": {"bid": 1.1, "ask": 1.2, "time_msc": 1000}}, {"EURUSD": 0.0001}, 1000, 1000, now=1)
-        self.assertEqual(first[0]["pnl"], 15)
-        self.assertEqual(first[0]["openPositions"], 2)
-        self.assertEqual(first[1]["pnl"], -5)
-        self.assertEqual(first[2]["state"], "flat")
-        self.assertFalse(first[2]["active"])
-        self.assertEqual(first[3]["pnl"], 0)
-        self.assertEqual(set(first[0]) >= {"active", "state", "symbol", "pnl", "profit", "swap", "commission", "volume", "openPositions", "exposurePct", "balanceUsagePct", "pnlVelocity", "marketVelocity", "updatedAt"}, True)
+        first = tracker.aggregate(positions, agents, {"USTEC": {"bid": 1.1, "ask": 1.2, "time_msc": 1000}}, {"USTEC": 0.0001}, 1000, 1000, now=1)
+        self.assertEqual(first[0]["pnl"], 10)
+        self.assertEqual(first[1]["pnl"], 5)
+        self.assertEqual(first[2]["pnl"], -5)
+        self.assertEqual(first[3]["pnl"], 999)
+        self.assertEqual(first[2]["state"], "short")
+        self.assertTrue(first[3]["active"])
 
     def test_pnl_and_market_velocity_are_ema_smoothed(self):
         tracker = TelemetryTracker(alpha=1)
@@ -74,6 +73,25 @@ class TelemetryTests(unittest.TestCase):
         self.assertEqual(two["positions"][0]["side"], "sell")
         self.assertEqual(two["floatingReturnPct"], round(37.79 / 1350 * 100, 3))
 
+    def test_deals_match_by_comment_tag_when_magic_is_zero(self):
+        tracker = TelemetryTracker(alpha=1)
+        agents = [
+            {"id": "one", "name": "A", "magic": None, "symbol": "USTEC", "tags": ["STOCH"]},
+            {"id": "two", "name": "B", "magic": None, "symbol": "XAUUSD", "tags": ["STOCH"]},
+            {"id": "three", "name": "C", "magic": None, "symbol": "USTEC", "tags": ["TRIANGLE"]},
+            {"id": "four", "name": "D", "magic": None, "symbol": "XAUUSD", "tags": ["TRIANGLE"]},
+        ]
+        history = [
+            {"magic": 0, "type": 0, "entry": 1, "symbol": "USTEC", "profit": 12, "comment": "StochExtreme BUY close"},
+            {"magic": 0, "type": 0, "entry": 1, "symbol": "XAUUSD", "profit": -3, "comment": "StochExtreme partial"},
+            {"magic": 0, "type": 0, "entry": 1, "symbol": "XAUUSD", "profit": 8, "comment": "Quantora FirstTriangle BUY"},
+        ]
+        result = tracker.aggregate([], agents, {}, {}, 1000, 1000, now=1, history=history, starting_balance=1000)
+        self.assertEqual(result[0]["closedPnl"], 12.0)
+        self.assertEqual(result[1]["closedPnl"], -3.0)
+        self.assertEqual(result[3]["closedPnl"], 8.0)
+        self.assertEqual(result[2]["closedPnl"], 0.0)
+
     def test_closed_history_and_return_percentages_per_bot(self):
         tracker = TelemetryTracker(alpha=1)
         agents = [
@@ -83,11 +101,12 @@ class TelemetryTests(unittest.TestCase):
             {"id": "four", "name": "EA Four", "magic": 404},
         ]
         history = [
-            {"magic": 101, "type": 0, "profit": 50, "swap": 2, "commission": -2},
-            {"magic": 101, "type": 1, "profit": 30, "swap": 0, "commission": 0},
-            {"magic": 202, "type": 0, "profit": -20, "swap": 0, "commission": 0},
-            {"magic": 999, "type": 0, "profit": 500, "swap": 0, "commission": 0},
-            {"magic": 101, "type": 2, "profit": 9999, "swap": 0, "commission": 0},
+            {"magic": 101, "type": 0, "entry": 1, "profit": 50, "swap": 2, "commission": -2},
+            {"magic": 101, "type": 1, "entry": 1, "profit": 30, "swap": 0, "commission": 0},
+            {"magic": 101, "type": 0, "entry": 0, "profit": 777, "swap": 0, "commission": 0},
+            {"magic": 202, "type": 0, "entry": 1, "profit": -20, "swap": 0, "commission": 0},
+            {"magic": 999, "type": 0, "entry": 1, "profit": 500, "swap": 0, "commission": 0},
+            {"magic": 101, "type": 2, "entry": 1, "profit": 9999, "swap": 0, "commission": 0},
         ]
         positions = [
             {"magic": 101, "symbol": "EURUSD", "type": 0, "volume": 1, "price_open": 1.1, "price_current": 1.2, "profit": 10, "swap": 0, "commission": 0},
@@ -100,6 +119,9 @@ class TelemetryTests(unittest.TestCase):
         self.assertEqual(one["totalReturnPct"], 9.0)
         self.assertEqual(two["closedPnl"], -20.0)
         self.assertEqual(two["totalReturnPct"], -2.0)
+        self.assertEqual(one["closedTrades"], 2)
+        self.assertEqual(one["winRatePct"], 100.0)
+        self.assertEqual(two["winRatePct"], 0.0)
         self.assertEqual(result[2]["closedPnl"], 0.0)
         self.assertEqual(result[3]["closedPnl"], 0.0)
 

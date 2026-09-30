@@ -28,6 +28,8 @@ export const botSchema = z.object({
   floatingReturnPct: z.number(),
   closedReturnPct: z.number(),
   totalReturnPct: z.number(),
+  closedTrades: z.number().int().nonnegative(),
+  winRatePct: z.number().nonnegative(),
   pnlVelocity: z.number(),
   marketVelocity: z.number().nonnegative(),
   priceAverage: z.number().nullable(),
