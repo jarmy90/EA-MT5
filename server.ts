@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import next from "next";
 import { WebSocket, WebSocketServer } from "ws";
+import { z } from "zod";
 import { telemetrySchema, type Bot, type Telemetry } from "./lib/schema";
 import { mockTelemetry } from "./server/mock";
 
@@ -174,7 +175,9 @@ function normalizeWebSocketTelemetry(raw: unknown): Telemetry | null {
 }
 
 function withConnectionState(data: Telemetry, state: Telemetry["connectionState"]): Telemetry {
-  return telemetrySchema.parse({ ...data, bridgeConnected: state === "connected", connectionState: state });
+  const merged = { ...data, bridgeConnected: state === "connected", connectionState: state } as Telemetry;
+  const result = telemetrySchema.safeParse(merged);
+  return result.success ? result.data : merged;
 }
 
 function offlineTelemetry(state: "stale" | "disconnected", last: Telemetry | null): Telemetry {
@@ -248,7 +251,14 @@ async function main() {
   let lastBridgeData: Telemetry | null = null;
 
   const broadcast = (data: Telemetry) => {
-    latest = telemetrySchema.parse(data);
+    let validated: Telemetry;
+    try {
+      validated = telemetrySchema.parse(data);
+    } catch (error) {
+      console.error("Rejected telemetry frame (schema mismatch):", error instanceof z.ZodError ? error.issues.slice(0, 4) : error);
+      return;
+    }
+    latest = validated;
     const body = JSON.stringify(latest);
     for (const client of wss.clients) {
       if (client.readyState === WebSocket.OPEN) client.send(body);

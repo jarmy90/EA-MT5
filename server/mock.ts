@@ -53,7 +53,7 @@ export function mockTelemetry(t: number): Telemetry {
         profit: pnl,
         swap: 0,
         commission: 0,
-        volume: active ? [0.6, 0.6, 0.04, 0.15][index] : 0,
+        volume: active ? ([0.6, 0.6, 0.04, 0.15, 1.0, 0.5] as const)[index] : 0,
         openPositions: active ? 1 : 0,
         exposurePct: active ? [18, 27, 13, 22, 9, 15][index] ?? 0 : 0,
         balanceUsagePct: active ? [18, 27, 13, 22, 9, 15][index] ?? 0 : 0,
