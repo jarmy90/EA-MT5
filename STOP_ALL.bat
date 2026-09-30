@@ -1,9 +1,8 @@
 @echo off
-setlocal
+title Quantora Orbit - Stop
+echo Cerrando Quantora Orbit (web y puente)...
 
-echo Stopping only Quantora Orbit launcher windows...
-taskkill /FI "WINDOWTITLE eq Quantora Orbit - MT5 Read-Only Bridge*" /T /F >nul 2>nul
-taskkill /FI "WINDOWTITLE eq Quantora Orbit Web*" /T /F >nul 2>nul
-echo [OK] Quantora Orbit launcher processes stopped, if they were running.
-echo Other Python, Node, Bun, and MT5 processes were not targeted.
-endlocal
+powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'tsx server\.ts' -or $_.CommandLine -match 'start_mision_control' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
+
+echo [OK] Procesos de Quantora Orbit detenidos.
+timeout /t 2 /nobreak >nul
