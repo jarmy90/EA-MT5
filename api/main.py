@@ -204,15 +204,28 @@ _mt5_ready = False
 
 
 def _ensure_mt5() -> str | None:
+    """Attach to the running MT5 terminal, re-initializing on every failure.
+
+    Returns None on success or a human-readable reason. The ready flag is
+    cleared whenever the terminal stops answering so a later poll retries.
+    """
     global _mt5_ready
     if not _MT5_AVAILABLE or mt5 is None:
         return _MT5_IMPORT_ERROR or "MetaTrader5 package unavailable"
-    if _mt5_ready and mt5.terminal_info() and mt5.account_info():
-        return None
+    try:
+        if mt5.terminal_info() is not None and mt5.account_info() is not None:
+            _mt5_ready = True
+            return None
+    except Exception:  # pragma: no cover - terminal died mid-call
+        _mt5_ready = False
     login = int(os.getenv("MT5_LOGIN", "0") or 0) or None
     password = os.getenv("MT5_PASSWORD") or None
     server = os.getenv("MT5_SERVER") or None
     path = os.getenv("MT5_PATH") or None
+    try:
+        mt5.shutdown()
+    except Exception:  # pragma: no cover
+        pass
     try:
         if login or password:
             initialized = mt5.initialize(path=path, login=login, password=password, server=server) if path else mt5.initialize(login=login, password=password, server=server)

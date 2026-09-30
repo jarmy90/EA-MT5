@@ -251,6 +251,7 @@ async function main() {
   let httpTimer: ReturnType<typeof setTimeout> | undefined;
   let lastBridgeAt = 0;
   let lastBridgeData: Telemetry | null = null;
+  let lastBridgeError: string | null = null;
 
   const broadcast = (data: Telemetry) => {
     let validated: Telemetry;
@@ -269,7 +270,8 @@ async function main() {
 
   const broadcastBridgeStatus = () => {
     const age = lastBridgeAt ? Date.now() - lastBridgeAt : disconnectedAfterMs;
-    broadcast(offlineTelemetry(age >= disconnectedAfterMs ? "disconnected" : "stale", lastBridgeData));
+    const frame = offlineTelemetry(age >= disconnectedAfterMs ? "disconnected" : "stale", lastBridgeData);
+    broadcast({ ...frame, bridgeError: frame.bridgeError ?? lastBridgeError });
   };
 
   const scheduleBridgeReconnect = (connect: () => void) => {
@@ -323,10 +325,12 @@ async function main() {
       const data = normalizeHttpTelemetry(raw);
       lastBridgeAt = Date.now();
       lastBridgeData = data;
+      lastBridgeError = null;
       broadcast(data);
     } catch (error) {
+      lastBridgeError = error instanceof Error ? error.message : String(error);
       broadcastBridgeStatus();
-      console.error("HTTP bridge error:", error instanceof Error ? error.message : error);
+      console.error("HTTP bridge error:", lastBridgeError);
     } finally {
       httpTimer = setTimeout(() => void pollHttpBridge(), Number(process.env.MT5_BRIDGE_POLL_INTERVAL ?? 1000));
     }

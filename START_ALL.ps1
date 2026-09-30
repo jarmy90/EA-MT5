@@ -37,7 +37,11 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "[2/4] Instalando dependencias web (rapido si ya estaban)..."
 & bun install 2>&1 | Select-Object -Last 3 | ForEach-Object { Write-Host "   $_" }
 
-Write-Host "[3/4] Arrancando puente MT5 (ventana minimizada)..."
+Write-Host "[3/4] Limpiando procesos anteriores y arrancando puente..."
+Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+  Where-Object { $_.CommandLine -match 'tsx server\.ts' -or $_.CommandLine -match 'start_mision_control' -or $_.CommandLine -match 'uvicorn api\.main' } |
+  ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue; Write-Host "   Cerrado proceso zombi $($_.ProcessId)" }
+Start-Sleep -Seconds 1
 Start-Process cmd -ArgumentList "/k","start_mision_control.bat" -WorkingDirectory $dir -WindowStyle Minimized
 Start-Sleep -Seconds 2
 
@@ -57,7 +61,7 @@ try {
   Write-Host "   [AVISO] El puente aun no responde; seguira reintentando." -ForegroundColor Yellow
 }
 
-Write-Host "[4/4] Arrancando la web..."
+Write-Host "[4/4] Arrancando la web (los logs van a web_log.txt y web_err.txt)..."
 $out = Join-Path $dir "web_log.txt"
 $err = Join-Path $dir "web_err.txt"
 $web = Start-Process bun -ArgumentList "run","dev" -WorkingDirectory $dir -RedirectStandardOutput $out -RedirectStandardError $err -PassThru -WindowStyle Hidden
