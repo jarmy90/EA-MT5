@@ -77,14 +77,16 @@ export function HUD() {
               <span className={`badge ${bot.active ? "on" : "off"}`}>{bot.active ? "ACTIVO" : "EN ESPERA"}</span>
             </header>
             <div className="card-symbol">{bot.symbol ?? "SIN SÍMBOLO"}</div>
-            <div className="card-pct">
-              <span className={`big ${bot.totalReturnPct >= 0 ? "positive" : "negative"}`}>{pct(bot.totalReturnPct)}</span>
-              <span className="of">sobre {data?.startingBalance.toFixed(0) ?? "—"} {data?.currency}</span>
+            <div className="card-pct" style={{flexDirection: "column", gap: "2px"}}>
+              <div style={{display: "flex", alignItems: "baseline", gap: "10px"}}>
+                <span className={`big ${bot.totalReturnPct >= 0 ? "positive" : "negative"}`}>{pct(bot.totalReturnPct)}</span>
+                <span className={`big ${bot.pnl + bot.closedPnl >= 0 ? "positive" : "negative"}`} style={{fontSize: "26px"}}>{bot.pnl + bot.closedPnl >= 0 ? "+" : ""}{(bot.pnl + bot.closedPnl).toFixed(2)} {data?.currency ?? "EUR"}</span>
+              </div>
+              <span className="of">Beneficio neto total desde 20 de julio</span>
             </div>
             <div className="card-split">
-              <div><small>Flotante</small><b className={bot.floatingReturnPct >= 0 ? "positive" : "negative"}>{pct(bot.floatingReturnPct)}</b></div>
-              <div><small>Cerrada</small><b className={bot.closedReturnPct >= 0 ? "positive" : "negative"}>{pct(bot.closedReturnPct)}</b></div>
-              <div><small>PnL real</small><b className={bot.pnl >= 0 ? "positive" : "negative"}>{bot.pnl >= 0 ? "+" : ""}{bot.pnl.toFixed(2)} {data?.currency ?? "EUR"}</b></div>
+              <div><small>Flotante</small><b className={bot.floatingReturnPct >= 0 ? "positive" : "negative"}>{pct(bot.floatingReturnPct)}<br/><span style={{fontSize:"0.8em", opacity:0.8}}>{bot.pnl >= 0 ? "+" : ""}{bot.pnl.toFixed(2)} {data?.currency ?? "EUR"}</span></b></div>
+              <div><small>Cerrada</small><b className={bot.closedReturnPct >= 0 ? "positive" : "negative"}>{pct(bot.closedReturnPct)}<br/><span style={{fontSize:"0.8em", opacity:0.8}}>{bot.closedPnl >= 0 ? "+" : ""}{bot.closedPnl.toFixed(2)} {data?.currency ?? "EUR"}</span></b></div>
             </div>
             <div className="card-stats">
               <div><small>Operaciones</small><b>{bot.closedTrades}</b></div>

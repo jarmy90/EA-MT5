@@ -72,6 +72,39 @@ def match_agent(item: Mapping[str, Any], definitions: list[Mapping[str, Any]]) -
     return None
 
 
+def build_position_lookup(history: Iterable[Mapping[str, Any]]) -> dict[int, dict[str, Any]]:
+    """Build position_id -> opening-deal info for resolving closing deals.
+
+    MT5 SL/TP closures have magic=0 and a comment like '[sl 1234.5]'.  The
+    *opening* deal for the same position carries the real EA magic and comment.
+    We scan all history deals (not just closing ones) and index by position_id
+    so we can retroactively attribute any closing deal whose magic and comment
+    are not directly matchable.
+    """
+    lookup: dict[int, dict[str, Any]] = {}
+    for deal in history:
+        entry = int(number(deal.get("entry"), 1))
+        if entry != 0:
+            continue  # Only index opening deals (entry == 0 means "in")
+        pid = int(number(deal.get("position_id"), 0))
+        if pid <= 0:
+            continue
+        magic = int(number(deal.get("magic"), -1))
+        comment = str(deal.get("comment") or "").strip()
+        symbol = str(deal.get("symbol") or "").strip()
+        if pid not in lookup:
+            lookup[pid] = {"magic": -1, "comment": "", "symbol": symbol}
+        # Prefer non-zero magic
+        if magic > 0 and lookup[pid]["magic"] <= 0:
+            lookup[pid]["magic"] = magic
+        # Prefer a real EA comment (not a broker [sl/tp] tag)
+        existing_comment = lookup[pid]["comment"]
+        if comment and not comment.startswith("[sl ") and not comment.startswith("[tp "):
+            if not existing_comment or existing_comment.startswith("[sl ") or existing_comment.startswith("[tp "):
+                lookup[pid]["comment"] = comment
+    return lookup
+
+
 def mid_price(tick: Mapping[str, Any]) -> float:
     bid = number(tick.get("bid"))
     ask = number(tick.get("ask"))
@@ -168,24 +201,69 @@ class TelemetryTracker:
             if agent is not None:
                 grouped[str(agent["id"])].append(position)
 
+        # Build position_id lookup from all history deals.
+        # Opening deals (entry==0) carry the real EA magic/comment; closing deals
+        # triggered by SL/TP have magic=0 and a '[sl price]' comment. We use the
+        # lookup so closing deals are attributed to the same bot as their opener.
+        all_history: list[Mapping[str, Any]] = list(history or [])
+        position_lookup = build_position_lookup(all_history)
+
         # Closed P&L per bot: every closing deal (entry != "in") owned by that bot.
+        # Resolution order:
+        #   1. Direct magic/comment match on the closing deal itself.
+        #   2. position_id lookup -> use opening deal's magic/comment.
+        #   3. 80/20 fallback: unattributed PnL -> 80% StochExtreme, 20% Triangulo.
         closed_pnl: dict[str, float] = {str(agent["id"]): 0.0 for agent in definitions}
         closed_trades: dict[str, int] = {str(agent["id"]): 0 for agent in definitions}
         wins: dict[str, int] = {str(agent["id"]): 0 for agent in definitions}
-        for deal in (history or []):
+        unattributed_pnl = 0.0
+
+        for deal in all_history:
             entry = int(number(deal.get("entry"), 1))
             deal_type = int(number(deal.get("type"), -1))
             if entry == 0 or deal_type not in (0, 1):
                 continue
+
             agent = match_agent(deal, definitions)
+
+            # Step 2: try position_id lookup if direct match failed
             if agent is None:
-                continue
-            bot_id = str(agent["id"])
+                pid = int(number(deal.get("position_id"), 0))
+                if pid > 0 and pid in position_lookup:
+                    info = position_lookup[pid]
+                    proxy: dict[str, Any] = dict(deal)
+                    if info.get("magic", -1) > 0:
+                        proxy["magic"] = info["magic"]
+                    if info.get("comment"):
+                        proxy["comment"] = info["comment"]
+                    agent = match_agent(proxy, definitions)
+
             profit = position_pnl(deal)
+
+            if agent is None:
+                # Step 3: accumulate for 80/20 fallback
+                unattributed_pnl += profit
+                continue
+
+            bot_id = str(agent["id"])
             closed_pnl[bot_id] += profit
             closed_trades[bot_id] += 1
             if profit > 0:
                 wins[bot_id] += 1
+
+        # Apply 80/20 fallback for any remaining truly-unattributed PnL.
+        # 80% -> first bot tagged STOCHEXTREME, 20% -> first bot tagged FIRSTTRIANGLE.
+        if unattributed_pnl != 0.0:
+            stoch_bot: Mapping[str, Any] | None = next(
+                (a for a in definitions if "STOCHEXTREME" in agent_tags(a)), None
+            )
+            tri_bot: Mapping[str, Any] | None = next(
+                (a for a in definitions if "FIRSTTRIANGLE" in agent_tags(a)), None
+            )
+            if stoch_bot is not None:
+                closed_pnl[str(stoch_bot["id"])] += unattributed_pnl * 0.80
+            if tri_bot is not None:
+                closed_pnl[str(tri_bot["id"])] += unattributed_pnl * 0.20
 
         # Bot-level percentages use the account starting capital when provided;
         # otherwise they fall back to balance minus current floating P&L.

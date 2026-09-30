@@ -96,12 +96,22 @@ def _agent_config() -> List[Dict[str, Any]]:
     overrides and never required by hand.
     """
     defaults = [
-        {"id": "bot-1", "name": "StochExtreme USTEC", "symbol": "USTEC", "tags": ["STOCHEXTREME"]},
-        {"id": "bot-2", "name": "Descargar USTEC M30", "symbol": "USTEC", "tags": ["DESCARGAR USTEC", "FIRSTTRIANGLE", "QUANTORA FIRSTTRIANGLE"]},
-        {"id": "bot-3", "name": "StochExtreme Oro", "symbol": "XAUUSD", "tags": ["STOCHEXTREME"]},
-        {"id": "bot-4", "name": "Descargar Oro M15", "symbol": "XAUUSD", "tags": ["DESCARGAR ORO", "FIRSTTRIANGLE"]},
-        {"id": "bot-5", "name": "VDPM DAX H1", "symbol": "DE40", "tags": ["VDPM"]},
-        {"id": "bot-6", "name": "US500 Pro", "symbol": "US500", "tags": ["US500_PRO", "US500"]},
+        # Confirmed magics from live MT5 history (2026-07-20 onwards).
+        # magics list = all known magic numbers for that EA.
+        {"id": "bot-1", "name": "StochExtreme USTEC", "symbol": "USTEC",
+         "magics": [257510, 26093001, 770103], "tags": ["STOCHEXTREME", "SEA2575"]},
+        {"id": "bot-2", "name": "Descargar USTEC M30", "symbol": "USTEC",
+         "magics": [257521], "tags": ["DESCARGAR USTEC", "FIRSTTRIANGLE", "QUANTORA FIRSTTRIANGLE"]},
+        {"id": "bot-3", "name": "StochExtreme Oro", "symbol": "XAUUSD",
+         "magics": [257520], "tags": ["STOCHEXTREME", "SEA2575"]},
+        {"id": "bot-4", "name": "Descargar Oro M15", "symbol": "XAUUSD",
+         "magics": [257522, 26081755], "tags": ["DESCARGAR ORO", "FIRSTTRIANGLE", "QUANTORA FIRSTTRIANGLE"]},
+        {"id": "bot-5", "name": "VDPM DAX H1", "symbol": "DE40",
+         "magics": [26092640], "tags": ["VDPM"]},
+        {"id": "bot-6", "name": "US500 Pro", "symbol": "US500",
+         "magics": [], "tags": ["US500_PRO", "US500"]},
+        {"id": "bot-7", "name": "SVA EURUSD", "symbol": "EURUSD",
+         "magics": [26092530], "tags": ["SVA"]},
     ]
     agents: List[Dict[str, Any]] = []
     for index in range(1, 9):
@@ -110,13 +120,20 @@ def _agent_config() -> List[Dict[str, Any]]:
         if index > len(defaults) and not has_config:
             continue
         base = dict(defaults[index - 1]) if index <= len(defaults) else {
-            "id": f"bot-{index}", "name": f"Bot {index}", "symbol": None, "tags": [],
+            "id": f"bot-{index}", "name": f"Bot {index}", "symbol": None, "tags": [], "magics": [],
         }
+        # Build magics list: start from defaults, then add env override if given
+        env_magic_raw = os.getenv(f"BOT_{index}_MAGIC", "").strip()
+        env_magic = int(env_magic_raw) if env_magic_raw.lstrip("-").isdigit() else None
+        magics_list: List[int] = list(base.get("magics") or [])
+        if env_magic is not None and env_magic not in magics_list:
+            magics_list.insert(0, env_magic)
         agents.append({
             **base,
             "name": os.getenv(f"BOT_{index}_NAME", "").strip() or base["name"],
             "symbol": os.getenv(f"BOT_{index}_SYMBOL", "").strip() or base["symbol"],
-            "magic": int(raw_magic) if (raw_magic := os.getenv(f"BOT_{index}_MAGIC", "").strip()).lstrip("-").isdigit() else None,
+            "magic": magics_list[0] if magics_list else None,
+            "magics": magics_list,
         })
 
     # AGENT_MAP remains supported for existing private deployments, without defaults.
@@ -319,6 +336,21 @@ def _collect_once() -> Dict[str, Any]:
         symbol = str(position.get("symbol") or "")
         position["contract_size"] = contract_sizes.get(symbol, 1.0)
 
+    raw_history = mt5.history_deals_get(HISTORY_FROM, int(now) + 60) or []
+    history = [{
+        "ticket": getattr(d, "ticket", None),
+        "position_id": getattr(d, "position_id", None),
+        "magic": getattr(d, "magic", None),
+        "symbol": getattr(d, "symbol", None),
+        "type": getattr(d, "type", None),
+        "entry": getattr(d, "entry", None),
+        "profit": getattr(d, "profit", None),
+        "swap": getattr(d, "swap", None),
+        "commission": getattr(d, "commission", None),
+        "comment": getattr(d, "comment", None),
+        "time": getattr(d, "time", None),
+    } for d in raw_history]
+
     bots = _tracker.aggregate(
         positions,
         AGENTS,
@@ -327,7 +359,7 @@ def _collect_once() -> Dict[str, Any]:
         account["balance"],
         account["equity"],
         now,
-        history=mt5.history_deals_get(HISTORY_FROM, int(now) + 60) or [],
+        history=history,
         currency_rate=_eur_rate(account["currency"]),
         starting_balance=STARTING_BALANCE * _eur_rate(account["currency"]),
     )

@@ -41,15 +41,16 @@ type BotIdentity = { id: string; name: string };
 
 const DEFAULT_BOT_NAMES = [
   "StochExtreme USTEC",
-  "Descargar USTEC M30",
+  "Triángulo USTEC M30",
   "StochExtreme Oro",
-  "Descargar Oro M15",
+  "Triángulo Oro 15M",
   "VDPM DAX H1",
   "US500 Pro",
+  "SVA EURUSD",
 ];
 const botIdentities: BotIdentity[] = [
   ...DEFAULT_BOT_NAMES.map((name, index) => ({ id: `bot-${index + 1}`, name })),
-  ...[7, 8, 9, 10].map((index) => ({
+  ...[8, 9, 10].map((index) => ({
     id: `bot-${index}`,
     name: process.env[`BOT_${index}_NAME`]?.trim() ?? "",
   })).filter((identity) => identity.name),
@@ -132,7 +133,7 @@ function normalizeHttpTelemetry(raw: RawTelemetry): Telemetry {
     return normalizeBot(rawBot, identity, timestamp);
   });
   if (bots.length === 0) {
-    bots.push(...botIdentities.slice(0, 6).map((identity) => emptyBot(identity, timestamp)));
+    bots.push(...botIdentities.slice(0, 7).map((identity) => emptyBot(identity, timestamp)));
   }
   const connected = raw.status?.connected === true && (balance > 0 || accountBalance > 0);
   const actualBalance = balance || accountBalance;

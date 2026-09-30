@@ -38,7 +38,7 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .card-pct{display:flex;align-items:baseline;gap:10px}
 .card-pct .big{font-size:34px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 .card-pct .of{font-size:11px;color:var(--muted)}
-.card-split{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:9px 0}
+.card-split{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:9px 0}
 .card-split small,.card-stats small{display:block;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.12em;margin-bottom:3px}
 .card-split b,.card-stats b{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
 .card-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
@@ -64,7 +64,7 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 }
 @media(max-width:430px){
   .grid{grid-template-columns:1fr}
-  .card-split{grid-template-columns:repeat(3,auto)}
+  .card-split{grid-template-columns:repeat(2,auto)}
   .card-stats{grid-template-columns:repeat(2,1fr)}
 }
 @media(min-width:1500px){
